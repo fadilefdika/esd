@@ -67,3 +67,20 @@ CREATE TABLE TRANSACTION_DETAIL_ITEM (
     CONSTRAINT FK_Trans_Header_Detail FOREIGN KEY (transaction_id) REFERENCES [TRANSACTION](id) ON DELETE CASCADE,
     CONSTRAINT FK_Trans_Item_Detail FOREIGN KEY (item_id) REFERENCES ITEM(id)
 );
+
+
+ALTER TABLE esd.dbo.ENTITY ADD category varchar(100) NULL;
+ALTER TABLE esd.dbo.ENTITY ADD information varchar(100) NULL;
+
+ALTER TABLE esd.dbo.ENTITY_DETAIL_ITEM ALTER COLUMN status varchar(100) NULL;
+ALTER TABLE esd.dbo.ENTITY_DETAIL_ITEM ADD receive_date date NULL;
+ALTER TABLE esd.dbo.ENTITY_DETAIL_ITEM ADD return_date date NULL;
+ALTER TABLE esd.dbo.ENTITY_DETAIL_ITEM ADD return_notes varchar(100) NULL;
+
+CREATE TABLE CATEGORY (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    category_name VARCHAR(100) NOT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    creator_id INT DEFAULT 1
+);

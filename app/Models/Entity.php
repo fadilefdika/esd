@@ -10,7 +10,7 @@ class Entity extends Model
     protected $fillable = [
         'id', 'code', 'npk', 'employee_name', 'dept_id', 'dept_name', 
         'no_loker', 'line_id', 'line_name', 'status', 'entity_link_qr',
-        'created_at', 'updated_at', 'creator_id'
+        'created_at', 'updated_at', 'creator_id', 'category', 'information'
     ];
 
     public $incrementing = true;
@@ -18,7 +18,7 @@ class Entity extends Model
     public function items()
     {
         return $this->belongsToMany(Item::class, 'ENTITY_DETAIL_ITEM', 'entity_id', 'item_id')
-                    ->withPivot('size', 'notes');
+                    ->withPivot('size', 'notes', 'creator_id', 'status', 'receive_date', 'return_date', 'return_notes');
     }
 
     public function transactions()

@@ -31,7 +31,7 @@ class EntityController extends Controller
     {
         try {
             $apiUrl = env('API_BASE_URL', 'http://localhost:1411');
-            $apiToken = env('API_KEY', 'a7e8b04c6f234b2fae7c8d916ec9f1aa');
+            $apiToken = env('API_KEY');
 
             $response = Http::withToken($apiToken)
                 ->withHeaders(['Accept' => 'application/json'])
@@ -91,6 +91,8 @@ class EntityController extends Controller
                 'status'         => $request->status ?? 'AKTIF',
                 'entity_link_qr' => $request->entity_link_qr,
                 'creator_id'     => $currentUserId,
+                'category'       => $request->category ?? '-',
+                'information'    => $request->information ?? '-',
             ]);
 
             if ($request->has('items')) {
@@ -99,6 +101,10 @@ class EntityController extends Controller
                         'size'       => $item['size'] ?? null,
                         'notes'      => $item['notes'] ?? null,
                         'creator_id' => $currentUserId,
+                        'status'     => $item['status'] ?? '-',
+                        'receive_date' => $item['receive_date'] ?? null,
+                        'return_date' => $item['return_date'] ?? null,
+                        'return_notes' => $item['return_notes'] ?? '-',
                     ]);
                 }
             }

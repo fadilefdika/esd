@@ -5,6 +5,7 @@ use App\Http\Middleware\AdminAuth;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AparController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\EntityController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\LocationController;
@@ -37,6 +38,7 @@ Route::middleware(AdminAuth::class)->prefix('admin')->name('admin.')->group(func
     Route::get('entities/{id}/download-qr', [EntityController::class, 'downloadQR'])->name('entities.download-qr');
     Route::apiResource('entities', EntityController::class);
 
+    Route::resource('category', CategoryController::class);
     Route::apiResource('items', ItemController::class);
     Route::apiResource('transactions', TransactionController::class);
     

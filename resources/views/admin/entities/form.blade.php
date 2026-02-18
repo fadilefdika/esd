@@ -24,7 +24,7 @@
     .select2-container--bootstrap-5 .select2-selection { font-size: 0.875rem !important; min-height: 31px !important; }
 </style>
 
-<div class="container-fluid py-4" style="max-width: 1200px;">
+<div class="container-fluid py-4">
     <div class="card card-custom shadow-sm">
         <div class="card-header-custom d-flex justify-content-between align-items-center bg-light/50">
             <div>
@@ -75,6 +75,14 @@
                     <div class="col-md-2">
                         <label class="input-label">System Code</label>
                         <input type="text" class="form-control form-control-sm bg-light text-muted italic" value="{{ $isCreate || $isCopy ? 'AUTO' : $entity->code }}" readonly style="font-size: 0.75rem;">
+                    </div>
+                     <div class="col-md-2">
+                        <label class="input-label">Kategori</label>
+                        <input type="text" name="category" class="form-control form-control-sm" value="{{ old('category', $entity->category ?? '') }}" placeholder="Karyawan/Tamu/Backup">
+                    </div>
+                     <div class="col-md-2">
+                        <label class="input-label">Keterangan</label>
+                        <input type="text" name="information" class="form-control form-control-sm" value="{{ old('information', $entity->information ?? '') }}" placeholder="Paket A/B/C">
                     </div>
                 </div>
 
