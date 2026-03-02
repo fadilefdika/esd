@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Http;
+use ZipArchive;
+use Illuminate\Support\Facades\File;
 
 class EntityController extends Controller
 {
@@ -59,6 +61,39 @@ class EntityController extends Controller
         return response($qrCode)
                 ->header('Content-Type', 'image/svg+xml')
                 ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    public function downloadAllQR()
+    {
+        $entities = Entity::all();
+
+        if ($entities->isEmpty()) {
+            return back()->with('error', 'Tidak ada data.');
+        }
+
+        $zipFileName = 'All_QR_Code.zip';
+        $zipPath = storage_path($zipFileName);
+
+        $zip = new ZipArchive;
+
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
+
+            foreach ($entities as $entity) {
+
+                $qrCode = QrCode::format('svg')
+                    ->size(300)
+                    ->margin(1)
+                    ->generate(url('/preview/' . $entity->id));
+
+                $fileName = 'QR_' . $entity->npk . '.svg';
+
+                $zip->addFromString($fileName, $qrCode);
+            }
+
+            $zip->close();
+        }
+
+        return response()->download($zipPath)->deleteFileAfterSend(true);
     }
 
     public function create() {

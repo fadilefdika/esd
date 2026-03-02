@@ -42,4 +42,5 @@ Route::middleware(AdminAuth::class)->prefix('admin')->name('admin.')->group(func
     Route::apiResource('items', ItemController::class);
     Route::apiResource('transactions', TransactionController::class);
     
+    Route::get('/download-all-qr', [EntityController::class, 'downloadAllQR'])->name('entities.download-all-qr');
 });

@@ -113,9 +113,24 @@
                     <h5 class="fw-bold text-dark mb-0">Alokasi Asset ESD</h5>
                     {{-- <p class="text-muted small mb-0">Total {{ $entities->count() }} Karyawan terdaftar</p> --}}
                 </div>
-                <a href="{{ route('admin.entities.create') }}" class="btn btn-primary btn-sm px-3 py-2 fw-semibold">
+                {{-- <a href="{{ route('admin.entities.create') }}" class="btn btn-primary btn-sm px-3 py-2 fw-semibold">
                     <i class="bi bi-plus-lg me-1"></i> Tambah Data
-                </a>
+                </a> --}}
+                 <div class="d-flex gap-2">
+                    <a href="{{ route('admin.entities.download-all-qr') }}"
+                    class="btn btn-outline-success btn-sm px-3 fw-semibold"
+                    onclick="return confirm('Download semua QR ({{ $entities->count() }} data)?')">
+                        <i class="bi bi-qr-code me-1"></i>
+                        Download All QR
+                    </a>
+
+                    <a href="{{ route('admin.entities.create') }}"
+                    class="btn btn-primary btn-sm px-3 fw-semibold">
+                        <i class="bi bi-plus-lg me-1"></i>
+                        Tambah Data
+                    </a>
+
+                </div>
             </div>
 
             <div class="table-responsive">
