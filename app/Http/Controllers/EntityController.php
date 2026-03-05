@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\EsdImport;
 use App\Models\Entity;
 use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Http;
 use ZipArchive;
@@ -94,6 +97,24 @@ class EntityController extends Controller
         }
 
         return response()->download($zipPath)->deleteFileAfterSend(true);
+    }
+
+    public function import(Request $request)
+    {
+        // Validasi agar hanya file Excel yang bisa diunggah
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv'
+        ]);
+
+        try {
+            // Proses import (saat ini akan terhenti di dd() dalam DepartmentImport)
+            Excel::import(new EsdImport, $request->file('file'));
+
+            return redirect()->back()->with('success', 'Data Berhasil Diimport!');
+        } catch (\Exception $e) {
+            Log::info($e->getMessage());
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
     }
 
     public function create() {

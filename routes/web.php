@@ -3,15 +3,9 @@
 use App\Models\Schedule;
 use App\Http\Middleware\AdminAuth;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AparController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\EntityController;
-use App\Http\Controllers\MediaController;
-use App\Http\Controllers\LocationController;
-use App\Http\Controllers\ScheduleController;
-use App\Http\Controllers\ScheduleTypeController;
-use App\Http\Controllers\InspectionScheduleController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\TransactionController;
 
@@ -43,4 +37,6 @@ Route::middleware(AdminAuth::class)->prefix('admin')->name('admin.')->group(func
     Route::apiResource('transactions', TransactionController::class);
     
     Route::get('/download-all-qr', [EntityController::class, 'downloadAllQR'])->name('entities.download-all-qr');
+    // Route untuk memproses upload file Excel
+    Route::post('/entities/import', [EntityController::class, 'import'])->name('entities.importExcel');
 });

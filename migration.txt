@@ -84,3 +84,20 @@ CREATE TABLE CATEGORY (
     updated_at DATETIME DEFAULT GETDATE(),
     creator_id INT DEFAULT 1
 );
+
+
+// aku nambah di bawah ni
+
+
+USE [esd];
+GO
+
+-- Menambahkan Sepatu dan Jilbab jika belum ada
+INSERT INTO [dbo].[ITEM] ([item_name], [created_at], [updated_at], [creator_id])
+VALUES 
+('Sepatu', GETDATE(), GETDATE(), 1), -- Akan menjadi ID 5
+('Jilbab', GETDATE(), GETDATE(), 1); -- Akan menjadi ID 6
+GO
+
+-- Cek hasil akhirnya
+SELECT * FROM [dbo].[ITEM];

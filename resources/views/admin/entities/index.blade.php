@@ -111,25 +111,26 @@
             <div class="card-header-custom">
                 <div>
                     <h5 class="fw-bold text-dark mb-0">Alokasi Asset ESD</h5>
-                    {{-- <p class="text-muted small mb-0">Total {{ $entities->count() }} Karyawan terdaftar</p> --}}
                 </div>
-                {{-- <a href="{{ route('admin.entities.create') }}" class="btn btn-primary btn-sm px-3 py-2 fw-semibold">
-                    <i class="bi bi-plus-lg me-1"></i> Tambah Data
-                </a> --}}
-                 <div class="d-flex gap-2">
+                
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#importModal">
+                        <i class="bi bi-file-earmark-excel me-1"></i>
+                        Import Excel
+                    </button>
+
                     <a href="{{ route('admin.entities.download-all-qr') }}"
-                    class="btn btn-outline-success btn-sm px-3 fw-semibold"
-                    onclick="return confirm('Download semua QR ({{ $entities->count() }} data)?')">
+                        class="btn btn-outline-success btn-sm px-3 fw-semibold"
+                        onclick="return confirm('Download semua QR ({{ $entities->count() }} data)?')">
                         <i class="bi bi-qr-code me-1"></i>
                         Download All QR
                     </a>
 
                     <a href="{{ route('admin.entities.create') }}"
-                    class="btn btn-primary btn-sm px-3 fw-semibold">
+                        class="btn btn-primary btn-sm px-3 fw-semibold">
                         <i class="bi bi-plus-lg me-1"></i>
                         Tambah Data
                     </a>
-
                 </div>
             </div>
 
@@ -222,6 +223,34 @@
                     <p class="text-muted small mb-4" id="qrNpkSubtitle"></p>
                     <button type="button" class="btn btn-primary w-100 rounded-pill" data-bs-dismiss="modal">Selesai</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="{{ route('admin.entities.importExcel') }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold" id="importModalLabel">Import Data Aset ESD</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info py-2 small">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Pastikan nama tab sesuai: Manufacturing, Quality, HRGA & EHS, dll.
+                        </div>
+                        <div class="mb-3">
+                            <label for="file" class="form-label small fw-bold">Pilih File Excel (.xlsx)</label>
+                            <input class="form-control form-control-sm" type="file" id="file" name="file" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary btn-sm px-4">Mulai Import</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
