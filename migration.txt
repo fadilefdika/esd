@@ -300,3 +300,73 @@ ALTER COLUMN [employee_name] VARCHAR(255) NULL;
 ALTER TABLE [dbo].[ENTITY] 
 ALTER COLUMN [dept_name] VARCHAR(100) NULL;
 GO
+
+
+USE [esd];
+GO
+
+UPDATE [dbo].[CODE_ESD]
+SET [jumlah_karyawan] = [jumlah_karyawan] + 
+    CASE [name]
+        WHEN 'ATS'   THEN 3
+        WHEN 'ATM'   THEN 3
+        WHEN 'ATL'   THEN 10 -- (3 Pemagangan + 5 OB + 2 PKL)
+        WHEN 'ATXL'  THEN 5  -- (3 Pemagangan + 2 PKL)
+        WHEN 'AT2XL' THEN 2  -- (2 PKL)
+        WHEN 'AT3XL' THEN 1  -- (1 OB)
+        WHEN 'BJS'   THEN 7
+        WHEN 'BJM'   THEN 5
+        WHEN 'BJL'   THEN 5
+        WHEN 'BJXL'  THEN 3
+        WHEN 'CTM'   THEN 5  -- (5 Tamu)
+        WHEN 'CTL'   THEN 10 -- (5 Supplier + 5 Tamu)
+        WHEN 'CTXL'  THEN 10 -- (5 Supplier + 5 Tamu)
+        WHEN 'CT2XL' THEN 10 -- (5 Supplier + 5 Tamu)
+        WHEN 'CT3XL' THEN 2  -- (2 Tamu)
+        ELSE 0
+    END,
+    [updated_at] = GETDATE()
+WHERE [name] IN (
+    'ATS', 'ATM', 'ATL', 'ATXL', 'AT2XL', 'AT3XL', 
+    'BJS', 'BJM', 'BJL', 'BJXL', 
+    'CTM', 'CTL', 'CTXL', 'CT2XL', 'CT3XL'
+);
+GO
+
+USE [esd];
+GO
+
+-- Menambahkan baris yang hilang dengan jumlah sesuai target spare
+INSERT INTO [dbo].[CODE_ESD] 
+([name], [created_at], [updated_at], [creator_id], [jumlah_karyawan])
+VALUES 
+('CT2XL', GETDATE(), GETDATE(), 1, 10), -- 5 Supplier + 5 Tamu
+('CT3XL', GETDATE(), GETDATE(), 1, 2);  -- 2 Tamu
+GO
+
+-- Cek hasil akhir tabel CODE_ESD
+SELECT [id], [name], [jumlah_karyawan], [updated_at]
+FROM [dbo].[CODE_ESD]
+ORDER BY [id] ASC;
+GO
+
+USE [esd];
+GO
+
+-- Menggunakan Common Table Expression (CTE) untuk menghitung ulang urutan
+WITH ReorderCTE AS (
+    SELECT 
+        [id], 
+        [code],
+        ROW_NUMBER() OVER (ORDER BY [id]) as NewSequence -- Menghitung nomor urut baru
+    FROM [dbo].[ENTITY]
+)
+UPDATE ReorderCTE
+SET [code] = 'ENT-' + CAST(YEAR(GETDATE()) AS VARCHAR) + '-' + RIGHT('0000' + CAST(NewSequence AS VARCHAR), 4);
+GO
+
+-- Verifikasi hasilnya
+SELECT [id], [code], [employee_name], [status]
+FROM [dbo].[ENTITY]
+ORDER BY [id] ASC;
+GO

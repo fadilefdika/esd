@@ -24,4 +24,9 @@ class CodeEsd extends Model
      * set properti ini menjadi false. Namun, di SQL tadi kita sudah menyiapkannya.
      */
     public $timestamps = true;//
+
+    public function entities()
+    {
+        return $this->hasMany(Entity::class, 'code_esd');
+    }
 }

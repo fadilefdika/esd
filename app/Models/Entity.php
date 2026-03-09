@@ -25,19 +25,24 @@ class Entity extends Model
     {
         return $this->hasMany(Transaction::class, 'entity_id', 'id');
     }
+    
+    public function codeEsd()
+    {
+        // Hubungkan ke model CodeEsd menggunakan kolom 'code_esd'
+        return $this->belongsTo(CodeEsd::class, 'code_esd');
+    }
 
     protected static function booted()
-    {
-        static::creating(function ($entity) {
+{
+    static::creating(function ($entity) {
+        // HANYA buat kode otomatis jika belum diisi manual
+        if (empty($entity->code)) {
             $year = date('Y');
-            $latest = self::whereYear('created_at', $year)->latest()->first();
+            // Gunakan id sebagai patokan urutan agar lebih presisi daripada created_at
+            $latest = self::whereYear('created_at', $year)->latest('id')->first();
             $number = $latest ? (intval(substr($latest->code, -4)) + 1) : 1;
             $entity->code = 'ENT-' . $year . '-' . str_pad($number, 4, '0', STR_PAD_LEFT);
-            //$entity->entity_link_qr = url(path: '/preview/' . $entity->id);
-
-            // if (empty($entity->entity_link_qr)) {
-            //     $entity->entity_link_qr = \Illuminate\Support\Str::uuid();
-            // }
-        });
-    }
+        }
+    });
+}
 }

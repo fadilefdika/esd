@@ -26,10 +26,9 @@ class EntityController extends Controller
         return view('admin.entities.index', compact('entities'));
     }
 
-    public function preview($id)
-    {
-        $entity = Entity::findOrFail($id);
-        
+    public function preview($code) {
+        // Cari berdasarkan kolom code, bukan find()
+        $entity = Entity::where('code', $code)->firstOrFail();
         return view('public.preview', compact('entity'));
     }
 
@@ -69,28 +68,41 @@ class EntityController extends Controller
 
     public function downloadAllQR()
     {
-        $entities = Entity::all();
+        // Eager loading relasi codeEsd agar tidak lambat (N+1 query)
+        $entities = Entity::with('codeEsd')->get();
 
         if ($entities->isEmpty()) {
-            return back()->with('error', 'Tidak ada data.');
+            return back()->with('error', 'Tidak ada data untuk didownload.');
         }
 
-        $zipFileName = 'All_QR_Code.zip';
+        $zipFileName = 'QR_Codes_Inventory_' . date('Y-m-d') . '.zip';
         $zipPath = storage_path($zipFileName);
-
         $zip = new ZipArchive;
 
         if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
 
             foreach ($entities as $entity) {
+                /** * 1. URL Best Practice: Menggunakan 'code' bukan 'id'
+                 * Contoh: domain.com/preview/ENT-2026-0169
+                 */
+                $qrUrl = url('/preview/' . $entity->code);
 
                 $qrCode = QrCode::format('svg')
                     ->size(300)
                     ->margin(1)
-                    ->generate(url('/preview/' . $entity->id));
+                    ->generate($qrUrl);
 
-                $fileName = 'QR_' . $entity->npk . '.svg';
+                /** * 2. Tentukan Nama Folder berdasarkan Nama CODE_ESD (ATS, ATM, BJS, dll)
+                 */
+                $folderName = $entity->codeEsd ? $entity->codeEsd->name : 'UNCATEGORIZED';
 
+                /** * 3. Tentukan Nama File 
+                 * Jika NPK ada, gunakan NPK. Jika stok AVAILABLE (NPK null), gunakan kode uniknya.
+                 */
+                $fileIdentifier = $entity->code;
+                $fileName = $folderName . '/QR_' . $fileIdentifier . '.svg';
+
+                // Masukkan ke dalam zip dengan struktur folder/nama_file.svg
                 $zip->addFromString($fileName, $qrCode);
             }
 
@@ -283,11 +295,15 @@ class EntityController extends Controller
     ];
 
     \DB::beginTransaction();
-    try {
+   try {
+        // 1. Hitung nomor urut awal SEKALI saja di luar loop
+        $year = date('Y');
+        $latest = Entity::whereYear('created_at', $year)->latest('id')->first();
+        $nextNumber = $latest ? (intval(substr($latest->code, -4)) + 1) : 1;
+
         foreach ($matrix as $kode => $categories) {
             $packageLetter = substr($kode, 0, 1); 
             $extractedSize = substr($kode, 2); 
-            
             if ($extractedSize == '2X') $extractedSize = '2XL';
             if ($extractedSize == '3X') $extractedSize = '3XL';
 
@@ -297,8 +313,11 @@ class EntityController extends Controller
             foreach ($categories as $categoryName => $count) {
                 for ($i = 1; $i <= $count; $i++) {
                     
-                    // SOLUSI: Gunakan Model Entity agar event 'creating' di booted() berjalan
+                    // 2. Buat string kode secara manual agar urut dan unik
+                    $manualCode = 'ENT-' . $year . '-' . str_pad($nextNumber++, 4, '0', STR_PAD_LEFT);
+
                     $entity = Entity::create([
+                        'code'          => $manualCode, // Isi manual untuk menghindari redundansi
                         'npk'           => null, 
                         'employee_name' => null, 
                         'dept_name'     => null, 
@@ -317,15 +336,15 @@ class EntityController extends Controller
                             if ($item->id == 5) $itemSize = null;
 
                             $details[] = [
-                                'entity_id'    => $entity->id, // Mengambil ID dari model yang baru dibuat
-                                'item_id'      => $item->id,
-                                'size'         => $itemSize,
-                                'notes'        => 'Set ke-1',
-                                'created_at'   => now(),
-                                'updated_at'   => now(),
-                                'creator_id'   => 1,
-                                'status'       => 'AVAILABLE',
-                                'set_no'       => 1,
+                                'entity_id'  => $entity->id,
+                                'item_id'    => $item->id,
+                                'size'       => $itemSize,
+                                'notes'      => 'Set ke-1',
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                                'creator_id' => 1,
+                                'status'     => 'AVAILABLE',
+                                'set_no'     => 1,
                             ];
                         }
                         \DB::table('ENTITY_DETAIL_ITEM')->insert($details);
@@ -334,7 +353,7 @@ class EntityController extends Controller
             }
         }
         \DB::commit();
-        return response()->json(['message' => 'Berhasil menambahkan 81 data Spare dengan Kode otomatis!']);
+        return response()->json(['message' => 'Berhasil menambahkan 81 data Spare tanpa redundansi!']);
     } catch (\Exception $e) {
         \DB::rollBack();
         return response()->json(['error' => $e->getMessage()], 500);

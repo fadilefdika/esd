@@ -21,7 +21,7 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-Route::get('/preview/{id}', [EntityController::class, 'preview'])->name('public.preview'); //preview page
+Route::get('/preview/{code}', [EntityController::class, 'preview'])->name('public.preview'); //preview page
 Route::get('admin/proxy-awork', [EntityController::class, 'proxyAwork'])->name('admin.proxy.awork');//ambil api awork (set up dulu di env url & token)
 
 // Dashboard (dilindungi oleh middleware 'auth')

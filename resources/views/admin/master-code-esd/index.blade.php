@@ -14,7 +14,7 @@
     </style>
 
     <div class="content-wrapper">
-        <div class="card-main">
+        <div class="card-main"> 
             <div class="card-header-custom">
                 <div>
                     <h5 class="fw-bold text-dark mb-0">Manajemen Kode ESD</h5>
