@@ -102,30 +102,18 @@ class EntityController extends Controller
 
     public function import(Request $request)
     {
-        $request->validate(['file' => 'required|mimes:xlsx,xls']);
-
+        // DB::beginTransaction();
         try {
-            // 1. Mulai Database Transaction agar jika error, data tidak terhapus setengah-setengah
-            \DB::beginTransaction();
-
-            // 2. Bersihkan Data Lama (Eloquent way)
-            \DB::table('ENTITY_DETAIL_ITEM')->delete();
-            \DB::table('ENTITY')->delete();
-            
-            // 3. Reset Counter Code ESD ke 0
-            \App\Models\CodeEsd::query()->update(['jumlah_karyawan' => 0]);
-
-            // 4. Jalankan Import
             Excel::import(new EsdImport, $request->file('file'));
-
-            \DB::commit();
-            Log::info('Data Berhasil Di-reset dan Di-import ulang!');
-            return back()->with('success', 'Data Berhasil Di-reset dan Di-import ulang!');
-
+           
+            return back()->with('success', 'Import Berhasil!');
         } catch (\Exception $e) {
-            \DB::rollBack();
-            Log::info('Gagal Import: ' . $e->getMessage());
-            return back()->with('error', 'Gagal Import: ' . $e->getMessage());
+            // Cek level transaksi agar tidak muncul error "No transaction found"
+            
+            
+            // Log pesan error aslinya untuk pengecekan
+            Log::error("Detail Gagal Import: " . $e->getMessage());
+            return back()->with('error', 'Gagal: ' . $e->getMessage());
         }
     }
 
@@ -269,4 +257,87 @@ class EntityController extends Controller
             return redirect()->route('admin.entities.index')->with('error', 'Gagal hapus: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Menghasilkan data stok (spare) secara otomatis berdasarkan target manual.
+     * Menggunakan logika: Target - Data Karyawan yang Sudah Ada = Sisa Stok yang Perlu QR.
+     */
+    public function generateManualSpare()
+{
+    $matrix = [
+        'ATS'   => ['Pemagangan' => 3],
+        'ATM'   => ['Pemagangan' => 3],
+        'ATL'   => ['Pemagangan' => 3, 'OB' => 5, 'PKL' => 2],
+        'ATXL'  => ['Pemagangan' => 3, 'PKL' => 2],
+        'AT2XL' => ['PKL' => 2],
+        'AT3XL' => ['OB' => 1],
+        'BJS'   => ['Pemagangan' => 7],
+        'BJM'   => ['Pemagangan' => 5],
+        'BJL'   => ['Pemagangan' => 5],
+        'BJXL'  => ['Pemagangan' => 3],
+        'CTM'   => ['Tamu' => 5],
+        'CTL'   => ['Supplier' => 5, 'Tamu' => 5],
+        'CTXL'  => ['Supplier' => 5, 'Tamu' => 5],
+        'CT2XL' => ['Supplier' => 5, 'Tamu' => 5],
+        'CT3XL' => ['Tamu' => 2],
+    ];
+
+    \DB::beginTransaction();
+    try {
+        foreach ($matrix as $kode => $categories) {
+            $packageLetter = substr($kode, 0, 1); 
+            $extractedSize = substr($kode, 2); 
+            
+            if ($extractedSize == '2X') $extractedSize = '2XL';
+            if ($extractedSize == '3X') $extractedSize = '3XL';
+
+            $package = \App\Models\Package::where('package_name', $packageLetter)->with('items')->first();
+            $codeEsd = \DB::table('CODE_ESD')->where('name', $kode)->first();
+
+            foreach ($categories as $categoryName => $count) {
+                for ($i = 1; $i <= $count; $i++) {
+                    
+                    // SOLUSI: Gunakan Model Entity agar event 'creating' di booted() berjalan
+                    $entity = Entity::create([
+                        'npk'           => null, 
+                        'employee_name' => null, 
+                        'dept_name'     => null, 
+                        'status'        => 'AVAILABLE',
+                        'category'      => $categoryName,
+                        'package'       => $packageLetter,
+                        'total_set_esd' => 1,
+                        'code_esd'      => $codeEsd->id ?? null,
+                        'creator_id'    => 1,
+                    ]);
+
+                    if ($package) {
+                        $details = [];
+                        foreach ($package->items as $item) {
+                            $itemSize = (string)$extractedSize;
+                            if ($item->id == 5) $itemSize = null;
+
+                            $details[] = [
+                                'entity_id'    => $entity->id, // Mengambil ID dari model yang baru dibuat
+                                'item_id'      => $item->id,
+                                'size'         => $itemSize,
+                                'notes'        => 'Set ke-1',
+                                'created_at'   => now(),
+                                'updated_at'   => now(),
+                                'creator_id'   => 1,
+                                'status'       => 'AVAILABLE',
+                                'set_no'       => 1,
+                            ];
+                        }
+                        \DB::table('ENTITY_DETAIL_ITEM')->insert($details);
+                    }
+                }
+            }
+        }
+        \DB::commit();
+        return response()->json(['message' => 'Berhasil menambahkan 81 data Spare dengan Kode otomatis!']);
+    } catch (\Exception $e) {
+        \DB::rollBack();
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
 }

@@ -48,4 +48,8 @@ Route::middleware(AdminAuth::class)->prefix('admin')->name('admin.')->group(func
     Route::post('/entities/import', [EntityController::class, 'import'])->name('entities.importExcel');
 
     Route::resource('code-esd', CodeEsdController::class);
+
+   Route::get('/generate-spare', [EntityController::class, 'generateManualSpare']); 
+
+
 });

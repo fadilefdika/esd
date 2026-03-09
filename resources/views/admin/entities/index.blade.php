@@ -120,8 +120,7 @@
                     </button>
 
                     <a href="{{ route('admin.entities.download-all-qr') }}"
-                        class="btn btn-outline-success btn-sm px-3 fw-semibold"
-                        onclick="return confirm('Download semua QR ({{ $entities->count() }} data)?')">
+                        class="btn btn-outline-success btn-sm px-3 fw-semibold btn-download-all">
                         <i class="bi bi-qr-code me-1"></i>
                         Download All QR
                     </a>
@@ -199,7 +198,7 @@
                                         </a>
                                         <form action="{{ route('admin.entities.destroy', $entity->id) }}" method="POST" class="d-inline">
                                             @csrf @method('DELETE')
-                                            <button type="submit" class="btn btn-sm" onclick="return confirm('Hapus data?')">
+                                            <button type="button" class="btn btn-sm btn-delete">
                                                 <i class="bi bi-trash text-danger"></i>
                                             </button>
                                         </form>
@@ -285,6 +284,46 @@
                     correctLevel : QRCode.CorrectLevel.H
                 });
                 $('#qrViewModal').modal('show');
+            });
+
+            // SweetAlert for Download All QR
+            $('.btn-download-all').on('click', function(e) {
+                e.preventDefault();
+                const url = $(this).attr('href');
+                Swal.fire({
+                    title: 'Download QR?',
+                    text: 'Download semua QR ({{ $entities->count() }} data)?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Ya, Download!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = url;
+                    }
+                });
+            });
+
+            // SweetAlert for Delete Action
+            $('.btn-delete').on('click', function(e) {
+                e.preventDefault();
+                const form = $(this).closest('form');
+                Swal.fire({
+                    title: 'Hapus Data?',
+                    text: 'Apakah Anda yakin ingin menghapus data ini?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
             });
         });
     </script>
