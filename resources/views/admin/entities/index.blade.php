@@ -39,8 +39,8 @@
         }
 
         .table td {
-            padding: 10px 16px;
-            font-size: 0.875rem;
+            padding: 8px 12px;
+            font-size: 0.8rem;
             border-bottom: 1px solid #f1f5f9;
         }
 
@@ -141,6 +141,7 @@
                             <th>Info Karyawan</th>
                             <th class="text-center">ID / QR</th>
                             <th>Departemen</th>
+                            <th class="text-center">Code ESD</th>
                             <th class="text-center">Status</th>
                             <th class="text-center" width="120">Aksi</th>
                         </tr>
@@ -155,8 +156,12 @@
                                             <i class="bi bi-person"></i>
                                         </div>
                                         <div>
-                                            <div class="fw-bold text-dark">{{ $entity->employee_name }}</div>
-                                            <div class="text-muted" style="font-size: 0.75rem;">NPK: {{ $entity->npk }}</div>
+                                            @if($entity->employee_name && $entity->npk)
+                                                <div class="fw-bold text-dark">{{ $entity->employee_name }}</div>
+                                                <div class="text-muted" style="font-size: 0.75rem;">NPK: {{ $entity->npk }}</div>
+                                            @else
+                                                <div class="fw-bold text-success fst-italic">Available</div>
+                                            @endif
                                         </div>
                                     </div>
                                 </td>
@@ -176,6 +181,9 @@
                                 </td>
                                 <td>
                                     <span class="text-dark fw-medium">{{ $entity->dept_name ?? '-' }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-secondary px-2 py-1" style="font-size: 0.70rem;">{{ $entity->codeEsd->name ?? '-' }}</span>
                                 </td>
                                 <td class="text-center">
                                     @if($entity->status == 'AKTIF')

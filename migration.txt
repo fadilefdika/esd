@@ -86,8 +86,8 @@ CREATE TABLE CATEGORY (
 );
 
 
-// aku nambah di bawah ni
 
+// aku nambah di bawah ni (9 maret 2026)
 
 USE [esd];
 GO
@@ -128,7 +128,7 @@ CREATE TABLE PACKAGE_DETAIL_ITEM (
 
 
 // perbaikan tabel entity (nambah kolom buat nerima total set esd, sama code esd)
-  USE [esd];
+USE [esd];
 GO
 
 -- 1. Mengubah nama kolom 'information' menjadi 'package'
@@ -193,15 +193,9 @@ DBCC CHECKIDENT ('[ENTITY]', RESEED, 0);
 
 
 // sore dimulai dari ini 
+
+USE [esd];
 GO
-
-
-  USE [esd];
-GO
-
-
-
-
 -- 3. Isi Data Master
 -- id (identity) dan created_at (default) akan terisi otomatis
 INSERT INTO [dbo].[PACKAGE] ([package_name]) 
@@ -301,6 +295,8 @@ ALTER TABLE [dbo].[ENTITY]
 ALTER COLUMN [dept_name] VARCHAR(100) NULL;
 GO
 
+
+// SEBELUM EKSEKUSI QUERY DIBAWAH, PASTIIN SUDAH IMPORT DATA DARI EXCEL TERLEBIH DAHULU
 
 USE [esd];
 GO

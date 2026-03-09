@@ -72,6 +72,50 @@
     .nav-custom .nav-link.active i {
         color: var(--primary-ems) !important;
     }
+
+    /* Animasi panah dropdown */
+    .nav-custom .nav-link .bi-chevron-down {
+        transition: transform 0.3s ease;
+    }
+    
+    .nav-custom .nav-link[aria-expanded="true"] .bi-chevron-down {
+        transform: rotate(180deg);
+    }
+    
+    /* Hover effects yang lebih halus */
+    .nav-custom .nav-link:hover {
+        background-color: #f8fafc !important;
+        transform: translateX(3px);
+        transition: all 0.2s ease;
+    }
+    .nav-custom .nav-link.active:hover {
+        transform: none; /* Jangan geser kalau lagi active */
+    }
+
+    /* Styling khusus sub-menu */
+    .submenu-item .nav-link {
+        padding: 10px 15px 10px 35px !important; /* Indentasi disesuaikan untuk icon */
+        font-size: 0.85rem !important;
+        color: #64748b !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+    }
+    
+    .submenu-item .nav-link:hover {
+        color: var(--primary-ems) !important;
+        background-color: transparent !important;
+    }
+    
+    .submenu-item .nav-link.active {
+        background-color: transparent !important;
+        color: var(--primary-ems) !important;
+        font-weight: 700 !important;
+    }
+    
+    .submenu-item .nav-link i {
+        font-size: 1rem !important;
+    }
 </style>
 @endpush
 
@@ -96,7 +140,13 @@
         <span class="menu-label">Administration</span>
         <ul class="nav flex-column p-0 m-0">
             <li class="nav-item">
-                <a class="nav-link justify-content-between" data-bs-toggle="collapse" href="#masterDataMenu">
+                @php 
+                    $isMasterDataActive = request()->is('admin/packages*') || request()->is('admin/code-esd*');
+                @endphp
+                <a class="nav-link justify-content-between {{ $isMasterDataActive ? 'active' : '' }}" 
+                   data-bs-toggle="collapse" 
+                   href="#masterDataMenu" 
+                   aria-expanded="{{ $isMasterDataActive ? 'true' : 'false' }}">
                     <div class="d-flex align-items-center gap-3">
                         <i class="bi bi-database-gear"></i>
                         <span>Master Data</span>
@@ -104,22 +154,19 @@
                     <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
                 </a>
 
-                <div class="collapse {{ request()->is('admin/packages*') ? 'show' : '' }}" id="masterDataMenu">
-                    <ul class="nav flex-column ps-4"> <li class="nav-item">
+                <div class="collapse {{ $isMasterDataActive ? 'show' : '' }}" id="masterDataMenu">
+                    <ul class="nav flex-column p-0 m-0 position-relative">
+                        <li class="nav-item submenu-item position-relative">
                             <a href="{{ route('admin.packages.index') }}" 
-                            class="nav-link {{ request()->routeIs('admin.packages.*') ? 'active' : '' }}" 
-                            style="font-size: 0.9rem;">
-                                <i class="bi bi-box-seam" style="font-size: 1rem !important;"></i>
-                                <span>Master Package</span>
+                               class="nav-link {{ request()->routeIs('admin.packages.*') ? 'active' : '' }}">
+                                <i class="bi bi-box-seam"></i> <span>Master Package</span>
                             </a>
                         </li>
-                    </ul>
-                    <ul class="nav flex-column ps-4"> <li class="nav-item">
+                        <li class="nav-item submenu-item position-relative">
+                            <!-- Update routeIs agar persis membaca admin.code-esd karena controllernya code-esd -->
                             <a href="{{ route('admin.code-esd.index') }}" 
-                            class="nav-link {{ request()->routeIs('admin.master-code-esd.*') ? 'active' : '' }}" 
-                            style="font-size: 0.9rem;">
-                                <i class="bi bi-box-seam" style="font-size: 1rem !important;"></i>
-                                <span>Master Code ESD</span>
+                               class="nav-link {{ request()->routeIs('admin.code-esd.*') || request()->is('admin/code-esd*') ? 'active' : '' }}">
+                                <i class="bi bi-upc-scan"></i> <span>Master Code ESD</span>
                             </a>
                         </li>
                     </ul>

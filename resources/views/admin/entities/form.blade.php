@@ -80,18 +80,22 @@
                         <label class="input-label">Kategori</label>
                         <select name="category" class="form-select form-select-sm">
                             <option value="">Pilih Kategori</option>
-                            <option value="Karyawan" {{ old('category', $entity->category ?? '') == 'Karyawan' ? 'selected' : '' }}>Karyawan</option>
-                            <option value="Tamu" {{ old('category', $entity->category ?? '') == 'Tamu' ? 'selected' : '' }}>Tamu</option>
-                            <option value="Backup" {{ old('category', $entity->category ?? '') == 'Backup' ? 'selected' : '' }}>Backup</option>
+                            <option value="Karyawan" {{ old('category', $entity->category ?? '') === 'Karyawan' ? 'selected' : '' }}>Karyawan</option>
+                            <option value="Tamu" {{ old('category', $entity->category ?? '') === 'Tamu' ? 'selected' : '' }}>Tamu</option>
+                            <option value="Supplier" {{ old('category', $entity->category ?? '') === 'Supplier' ? 'selected' : '' }}>Supplier</option>
+                            <option value="Pemagangan" {{ old('category', $entity->category ?? '') === 'Pemagangan' ? 'selected' : '' }}>Pemagangan</option>
+                            <option value="OB" {{ old('category', $entity->category ?? '') === 'OB' ? 'selected' : '' }}>OB</option>
+                            <option value="PKL" {{ old('category', $entity->category ?? '') === 'PKL' ? 'selected' : '' }}>PKL</option>
+                            <option value="Backup" {{ old('category', $entity->category ?? '') === 'Backup' ? 'selected' : '' }}>Backup</option>
                         </select>
                     </div>
                      <div class="col-md-2">
                         <label class="input-label">Keterangan (Paket)</label>
-                        <select name="information" id="package_select" class="form-select form-select-sm">
+                        <select name="package" id="package_select" class="form-select form-select-sm">
                             <option value="">Pilih Paket</option>
                             @foreach($package as $pkg)
                                 <option value="{{ $pkg->package_name }}" 
-                                    {{ trim(old('information', $entity->information ?? '')) == trim($pkg->package_name) ? 'selected' : '' }}>
+                                    {{ trim(old('package', $entity->package ?? '')) == trim($pkg->package_name) ? 'selected' : '' }}>
                                     {{ $pkg->package_name }}
                                 </option>
                             @endforeach
