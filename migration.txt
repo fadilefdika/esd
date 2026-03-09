@@ -101,3 +101,27 @@ GO
 
 -- Cek hasil akhirnya
 SELECT * FROM [dbo].[ITEM];
+
+//buat master package
+
+-- Tabel Utama
+CREATE TABLE PACKAGE (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    package_name VARCHAR(255) NOT NULL,
+    created_at DATETIME NULL DEFAULT GETDATE(),
+    updated_at DATETIME NULL DEFAULT GETDATE()
+);
+
+-- Tabel Relasi (Pivot)
+CREATE TABLE PACKAGE_DETAIL_ITEM (
+    id INT IDENTITY(1,1) PRIMARY KEY, -- IDENTITY DI SINI SANGAT PENTING
+    package_id INT NOT NULL,
+    item_id INT NOT NULL,
+    size VARCHAR(50) NULL,
+    -- Tambahkan kolom lain jika dibutuhkan di pivot Anda
+    created_at DATETIME NULL DEFAULT GETDATE(),
+    updated_at DATETIME NULL DEFAULT GETDATE(),
+
+    CONSTRAINT FK_PackageDetail_Package FOREIGN KEY (package_id) REFERENCES PACKAGE(id) ON DELETE CASCADE,
+    CONSTRAINT FK_PackageDetail_Item FOREIGN KEY (item_id) REFERENCES ITEM(id) ON DELETE CASCADE
+);

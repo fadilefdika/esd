@@ -54,6 +54,10 @@
                         <td class="value-col">{{ $entity->dept_name }}</td>
                     </tr>
                     <tr>
+                        <td class="label-col">Keterangan:</td>
+                        <td class="value-col">{{ $entity->information }}</td>
+                    </tr>
+                    <tr>
                         <td class="label-col">SIZE</td>
                         <td class="value-col">
                             @php 

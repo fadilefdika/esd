@@ -103,6 +103,18 @@
                     </div>
                     <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
                 </a>
+
+                <div class="collapse {{ request()->is('admin/packages*') ? 'show' : '' }}" id="masterDataMenu">
+                    <ul class="nav flex-column ps-4"> <li class="nav-item">
+                            <a href="{{ route('admin.packages.index') }}" 
+                            class="nav-link {{ request()->routeIs('admin.packages.*') ? 'active' : '' }}" 
+                            style="font-size: 0.9rem;">
+                                <i class="bi bi-box-seam" style="font-size: 1rem !important;"></i>
+                                <span>Master Package</span>
+                            </a>
+                        </li>
+                        </ul>
+                </div>
             </li>
         </ul>
     </div>

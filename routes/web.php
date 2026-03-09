@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\EntityController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\PackageController;
 use App\Http\Controllers\TransactionController;
 
 // Landing page
@@ -31,6 +32,11 @@ Route::middleware(AdminAuth::class)->prefix('admin')->name('admin.')->group(func
     Route::get('entities/{id}/copy', [EntityController::class, 'copy'])->name('entities.copy');
     Route::get('entities/{id}/download-qr', [EntityController::class, 'downloadQR'])->name('entities.download-qr');
     Route::apiResource('entities', EntityController::class);
+
+    Route::get('/packages/create', [PackageController::class, 'create'])->name('packages.create');
+    Route::get('/packages/edit/{id}', [PackageController::class, 'edit'])->name('packages.edit');
+    Route::apiResource('packages', PackageController::class);
+    
 
     Route::resource('category', CategoryController::class);
     Route::apiResource('items', ItemController::class);
