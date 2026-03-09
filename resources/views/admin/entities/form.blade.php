@@ -86,8 +86,16 @@
                         </select>
                     </div>
                      <div class="col-md-2">
-                        <label class="input-label">Keterangan</label>
-                        <input type="text" name="information" class="form-control form-control-sm" value="{{ old('information', $entity->information ?? '') }}" placeholder="Paket A/B/C">
+                        <label class="input-label">Keterangan (Paket)</label>
+                        <select name="information" id="package_select" class="form-select form-select-sm">
+                            <option value="">Pilih Paket</option>
+                            @foreach($package as $pkg)
+                                <option value="{{ $pkg->package_name }}" 
+                                    {{ trim(old('information', $entity->information ?? '')) == trim($pkg->package_name) ? 'selected' : '' }}>
+                                    {{ $pkg->package_name }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
 
@@ -187,6 +195,35 @@ $(document).ready(function() {
         $('#line_id').val(d.line_id);
         $('#line_name').val(d.line);
         $('#npk_display').val(d.npk);
+    });
+
+    // Auto-fill Items by Package
+    $('#package_select').on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        const itemsData = selectedOption.data('items');
+
+        if (itemsData && itemsData.length > 0) {
+            // Clear existing rows
+            $('#item-wrapper').empty();
+            rowIdx = 0;
+
+            // Iterate through the package items and populate
+            itemsData.forEach(function(item) {
+                const template = $('#item-row-template').html();
+                let html = template.replace(/ID_PLACEHOLDER/g, rowIdx);
+                
+                // Append first so we can find elements within the DOM
+                $('#item-wrapper').append(html);
+                
+                // Set the values for the newly appended row
+                const currentRow = $('#item-wrapper .item-row').last();
+                currentRow.find('select[name^="items"][name$="[item_id]"]').val(item.id);
+                // Status defaults to "Diterima" when auto-filling from a package typically
+                currentRow.find('select[name^="items"][name$="[status]"]').val('Diterima');
+                
+                rowIdx++;
+            });
+        }
     });
 });
 </script>

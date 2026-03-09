@@ -2,6 +2,7 @@
 namespace App\Imports;
 
 use App\Models\Entity;
+use App\Models\CodeEsd;
 use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -9,104 +10,123 @@ use Illuminate\Support\Str;
 
 class DepartmentImport implements ToModel, WithHeadingRow
 {
-    protected $deptName;
-
-    public function __construct($deptName)
+    /**
+     * Baris 1 adalah header gabungan, jadi baris 2 adalah Heading Row asli.
+     *
+     */
+    public function headingRow(): int
     {
-        // Paksa nama departemen dari 'EsdImport' menjadi UPPERCASE
-        $this->deptName = strtoupper($deptName);
+        return 2;
     }
 
     public function model(array $row)
     {
-        if (!isset($row['npk']) || empty(trim((string)$row['npk']))) {
-            return null; // Laravel akan melewati baris ini dan lanjut ke baris berikutnya
+        // 1. Validasi NPK: Bersihkan spasi & pastikan tidak kosong (Mencegah error baris hantu)
+        //
+        $npk = isset($row['npk']) ? trim((string)$row['npk']) : null;
+        if (empty($npk)) {
+            return null;
         }
-        
+
         $currentUserId = auth()->id() ?? 1;
 
-        // 1. Ambil data dari API
-        $apiUrl = env('API_BASE_URL', 'http://localhost:1411');
-        $apiToken = env('API_KEY');
+        // 2. Lookup Master Data & API
+        $apiResult = $this->fetchEmployeeData($npk);
+        $codeEsdId = $this->getAndIncrementCodeEsd($row['kode'] ?? null);
 
-        $response = Http::withToken($apiToken)
-            ->get($apiUrl . '/api/v1/users', ['search' => $row['npk']]);
-
-        // FIX: Cari data yang NPK-nya BENAR-BENAR sama dengan Excel (bukan sekadar mirip)
-        $apiResult = collect($response->json()['data'] ?? [])
-            ->firstWhere('npk', (string)$row['npk']);
-
-        // dd([
-        //     'INFO' => 'Sedang mengetes tab: ' . $this->deptName,
-        //     'DATA_DARI_EXCEL' => $row, // Lihat semua key asli di sini
-        //     'SIMULASI_ITEM_SPLIT' => [
-        //         // Gunakan seragam_esd sesuai header Excel
-        //         'has_uniform' => (($row['seragam_esd'] ?? 0) == 1 || Str::contains(strtolower($row['seragam_esd'] ?? ''), ['baju', 'celana'])),
-        //         'size_terdeteksi' => $row['size'] ?? '-',
-        //         'has_sepatu' => (($row['sepatu_esd'] ?? 0) == 1),
-        //         'size_sepatu' => $row['size_2'] ?? '-', // Kolom 'Size' kedua otomatis jadi size_2
-        //         'has_jilbab' => (($row['jilbab_esd'] ?? 0) == 1),
-        //         'has_topi' => (($row['topi_esd'] ?? 0) == 1),
-        //     ]
-        // ]);
-
-        // 2. Simpan ke tabel ENTITY
+        // 3. Simpan/Update ke tabel ENTITY
+        // Menggunakan nama kolom baru: 'package', 'total_set_esd', 'code_esd'
         $entity = Entity::updateOrCreate(
-            ['npk' => $row['npk']], // Cocokkan berdasarkan NPK dari Excel
+            ['npk' => $npk],
             [
-                'employee_name' => strtoupper($row['nama']), // Paksa Nama UPPERCASE
+                'employee_name' => $row['nama'] ?? 'UNKNOWN', // Nama apa adanya (tanpa strtoupper)
                 'dept_id'       => $apiResult['dept_id'] ?? null,
-                'dept_name'     => $this->deptName, // Menggunakan parameter constructor (UPPERCASE)
+                'dept_name'     => strtoupper($row['departemen'] ?? '-'), // Tetap UPPERCASE
                 'no_loker'      => $apiResult['no_loker'] ?? '-',
                 'line_id'       => $apiResult['line_id'] ?? null,
                 'line_name'     => $apiResult['line_name'] ?? '-',
                 'status'        => 'AKTIF',
                 'creator_id'    => $currentUserId,
-                'information'   => $row['paket'] ?? '-', // Diambil dari kolom 'Paket' Excel
+                'package'       => $row['paket'] ?? '-', 
+                'total_set_esd' => intval($row['set_seragam_esd'] ?? 0),
+                'code_esd'      => $codeEsdId, 
                 'category'      => $row['category'] ?? '-',
             ]
         );
 
-        // 3. Simpan Detail Item (Pemisahan Baju, Celana, dll)
+        // 4. Proses Alokasi Item (Baju, Celana, Sepatu, Topi, Jilbab)
         $this->processEntityItems($entity, $row, $currentUserId);
 
         return null;
     }
 
+    /**
+     * Mencari ID di tabel CODE_ESD dan menambah counter jumlah_karyawan.
+     *
+     */
+    private function getAndIncrementCodeEsd($kodeName)
+    {
+        if (empty($kodeName)) return null;
+
+        $kodeClean = trim(strtoupper($kodeName));
+        
+        // Cari data kode, jika tidak ada maka buat baru
+        $code = CodeEsd::firstOrCreate(['name' => $kodeClean]);
+        
+        // Increment jumlah karyawan sesuai permintaan
+        $code->increment('jumlah_karyawan');
+
+        return $code->id;
+    }
+
+    /**
+     * Mengambil data tambahan dari API internal.
+     */
+    private function fetchEmployeeData($npk)
+    {
+        try {
+            $response = Http::withToken(env('API_KEY'))
+                ->get(env('API_BASE_URL') . '/api/v1/users', ['search' => $npk]);
+            
+            return collect($response->json()['data'] ?? [])->firstWhere('npk', $npk);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Menyinkronkan item ke pivot table ENTITY_DETAIL_ITEM.
+     *
+     */
     private function processEntityItems($entity, $row, $currentUserId)
     {
-        // 1. Baju (ID 1) & Celana (ID 2)
-        if (($row['seragam_esd'] ?? 0) == 1) {
+        $itemsToSync = [];
+
+        // Kategori 1: Seragam (Baju ID 1 & Celana ID 2)
+        if (($row['jumlah'] ?? 0) == 1) {
             $size = $row['size'] ?? '-';
-            
-            // Ganti attach() menjadi syncWithoutDetaching()
-            $entity->items()->syncWithoutDetaching([
-                1 => ['size' => $size, 'status' => 'Diterima', 'creator_id' => $currentUserId],
-                2 => ['size' => $size, 'status' => 'Diterima', 'creator_id' => $currentUserId]
-            ]);
+            $itemsToSync[1] = ['size' => $size, 'status' => 'Diterima', 'creator_id' => $currentUserId];
+            $itemsToSync[2] = ['size' => $size, 'status' => 'Diterima', 'creator_id' => $currentUserId];
         }
 
-        // 2. Topi (ID 3) - Ini yang menyebabkan error (1, 3) tadi
+        // Kategori 2: Sepatu (ID 5) - Kolom 'Jumlah' kedua otomatis jadi 'jumlah_2'
+        if (($row['jumlah_2'] ?? 0) == 1) {
+            $itemsToSync[5] = ['size' => $row['size_2'] ?? '-', 'status' => 'Diterima', 'creator_id' => $currentUserId];
+        }
+
+        // Kategori 3: Topi (ID 3)
         if (($row['topi_esd'] ?? 0) == 1) {
-            $entity->items()->syncWithoutDetaching([
-                3 => ['size' => '-', 'status' => 'Diterima', 'creator_id' => $currentUserId]
-            ]);
+            $itemsToSync[3] = ['size' => '-', 'status' => 'Diterima', 'creator_id' => $currentUserId];
         }
 
-        // 3. Sepatu (ID 5)
-        if (($row['sepatu_esd'] ?? 0) == 1) {
-            $entity->items()->syncWithoutDetaching([
-                5 => [
-                    'size' => $row['size_2'] ?? '-', 
-                    'status' => 'Diterima', 
-                    'creator_id' => $currentUserId
-                ]
-            ]);
-        }
-
-        // 4. Jilbab (ID 6 - Hasil Insert SQL di atas)
+        // Kategori 4: Jilbab (ID 6)
         if (($row['jilbab_esd'] ?? 0) == 1) {
-            $entity->items()->syncWithoutDetaching(6, ['size' => '-', 'status' => 'Diterima', 'creator_id' => $currentUserId]);
+            $itemsToSync[6] = ['size' => '-', 'status' => 'Diterima', 'creator_id' => $currentUserId];
+        }
+
+        // Gunakan syncWithoutDetaching agar data tidak duplikat di SQL Server
+        if (!empty($itemsToSync)) {
+            $entity->items()->syncWithoutDetaching($itemsToSync);
         }
     }
 }

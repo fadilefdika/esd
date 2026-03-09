@@ -10,7 +10,7 @@ class Entity extends Model
     protected $fillable = [
         'id', 'code', 'npk', 'employee_name', 'dept_id', 'dept_name', 
         'no_loker', 'line_id', 'line_name', 'status', 'entity_link_qr',
-        'created_at', 'updated_at', 'creator_id', 'category', 'information'
+        'created_at', 'updated_at', 'creator_id', 'category', 'package', 'code_esd', 'total_set_esd'
     ];
 
     public $incrementing = true;

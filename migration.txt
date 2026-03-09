@@ -125,3 +125,69 @@ CREATE TABLE PACKAGE_DETAIL_ITEM (
     CONSTRAINT FK_PackageDetail_Package FOREIGN KEY (package_id) REFERENCES PACKAGE(id) ON DELETE CASCADE,
     CONSTRAINT FK_PackageDetail_Item FOREIGN KEY (item_id) REFERENCES ITEM(id) ON DELETE CASCADE
 );
+
+
+// perbaikan tabel entity (nambah kolom buat nerima total set esd, sama code esd)
+  USE [esd];
+GO
+
+-- 1. Mengubah nama kolom 'information' menjadi 'package'
+EXEC sp_rename '[dbo].[ENTITY].information', 'package', 'COLUMN';
+
+-- 2. Menambahkan kolom baru: 'code_esd' dan 'total_set_esd'
+ALTER TABLE [dbo].[ENTITY]
+ADD [code_esd] VARCHAR(100) NULL,
+    [total_set_esd] INT NULL;
+GO
+
+USE [esd];
+GO
+
+-- 1. Membuat tabel Master CODE_ESD
+CREATE TABLE [dbo].[CODE_ESD] (
+    [id] INT IDENTITY(1,1) PRIMARY KEY,
+    [name] VARCHAR(100) NOT NULL,
+    [created_at] DATETIME2 DEFAULT GETDATE(),
+    [updated_at] DATETIME2 DEFAULT GETDATE(),
+    [creator_id] INT DEFAULT 1
+);
+
+-- 2. Mengubah tipe data 'code_esd' di tabel ENTITY menjadi INT
+ALTER TABLE [dbo].[ENTITY]
+ALTER COLUMN [code_esd] INT;
+
+-- 3. Memasukkan data awal (Master Data) dari gambar
+INSERT INTO [dbo].[CODE_ESD] ([name]) VALUES
+('ATS'), ('ATM'), ('ATL'), ('ATXL'), ('AT2XL'), ('AT3XL'), ('AT4XL'), ('AT5XL'),
+('BJS'), ('BJM'), ('BJL'), ('BJXL'), ('BJ2XL'),
+('CTS'), ('CTM'), ('CTL'), ('CTXL');
+GO
+
+
+USE [esd];
+GO
+
+-- Menambahkan kolom jumlah_karyawan ke tabel CODE_ESD
+ALTER TABLE [dbo].[CODE_ESD]
+ADD [jumlah_karyawan] INT NULL;
+GO
+
+-- Verifikasi apakah kolom sudah muncul
+SELECT TOP 5 * FROM [dbo].[CODE_ESD];
+
+
+USE [esd];
+GO
+
+-- 1. Hapus semua detail item (Pivot Table)
+DELETE FROM [dbo].[ENTITY_DETAIL_ITEM];
+
+-- 2. Hapus semua data entitas/karyawan
+DELETE FROM [dbo].[ENTITY];
+
+-- 3. Reset counter jumlah karyawan di master kode
+UPDATE [dbo].[CODE_ESD] SET [jumlah_karyawan] = 0;
+
+-- 4. Reset Identity (opsional, agar ID mulai dari 1 lagi)
+DBCC CHECKIDENT ('[ENTITY]', RESEED, 0);
+GO

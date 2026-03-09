@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Imports\EsdImport;
 use App\Models\Entity;
 use App\Models\Item;
+use App\Models\Package;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -101,25 +102,38 @@ class EntityController extends Controller
 
     public function import(Request $request)
     {
-        // Validasi agar hanya file Excel yang bisa diunggah
-        $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv'
-        ]);
+        $request->validate(['file' => 'required|mimes:xlsx,xls']);
 
         try {
-            // Proses import (saat ini akan terhenti di dd() dalam DepartmentImport)
+            // 1. Mulai Database Transaction agar jika error, data tidak terhapus setengah-setengah
+            \DB::beginTransaction();
+
+            // 2. Bersihkan Data Lama (Eloquent way)
+            \DB::table('ENTITY_DETAIL_ITEM')->delete();
+            \DB::table('ENTITY')->delete();
+            
+            // 3. Reset Counter Code ESD ke 0
+            \App\Models\CodeEsd::query()->update(['jumlah_karyawan' => 0]);
+
+            // 4. Jalankan Import
             Excel::import(new EsdImport, $request->file('file'));
 
-            return redirect()->back()->with('success', 'Data Berhasil Diimport!');
+            \DB::commit();
+            Log::info('Data Berhasil Di-reset dan Di-import ulang!');
+            return back()->with('success', 'Data Berhasil Di-reset dan Di-import ulang!');
+
         } catch (\Exception $e) {
-            Log::info($e->getMessage());
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            \DB::rollBack();
+            Log::info('Gagal Import: ' . $e->getMessage());
+            return back()->with('error', 'Gagal Import: ' . $e->getMessage());
         }
     }
 
     public function create() {
+        $package =  Package::with('items')->get();
         $items = Item::all();
-        return view('admin.entities.form', compact('items'));
+    
+        return view('admin.entities.form', compact('package', 'items'));
     }
 
 
@@ -179,17 +193,19 @@ class EntityController extends Controller
     {
         $entity = Entity::with('items')->findOrFail($id);
         $items = Item::all(); 
+        $package = Package::with('items')->get();
 
-        return view('admin.entities.form', compact('entity', 'items'));
+        return view('admin.entities.form', compact('entity', 'items', 'package'));
     }
 
     public function copy($id)
     {
         $entity = Entity::with('items')->findOrFail($id);
         $items = Item::all();
+        $package = Package::with('items')->get();
         $isCopy = true;
 
-        return view('admin.entities.form', compact('entity', 'items', 'isCopy'));
+        return view('admin.entities.form', compact('entity', 'items', 'isCopy', 'package'));
     }
 
     public function show($id)

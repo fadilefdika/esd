@@ -113,7 +113,16 @@
                                 <span>Master Package</span>
                             </a>
                         </li>
-                        </ul>
+                    </ul>
+                    <ul class="nav flex-column ps-4"> <li class="nav-item">
+                            <a href="{{ route('admin.code-esd.index') }}" 
+                            class="nav-link {{ request()->routeIs('admin.master-code-esd.*') ? 'active' : '' }}" 
+                            style="font-size: 0.9rem;">
+                                <i class="bi bi-box-seam" style="font-size: 1rem !important;"></i>
+                                <span>Master Code ESD</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </li>
         </ul>
