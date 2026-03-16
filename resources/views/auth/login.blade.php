@@ -178,9 +178,14 @@
 
             <div class="card-body">
                 @if($errors->any())
-                    <div class="alert-modern">
+                    <div id="auth-alert" class="alert-modern alert-danger d-flex align-items-center mb-3" style="gap: 8px;">
                         <i class="bi bi-exclamation-circle-fill"></i>
-                        <span>{{ $errors->first() }}</span>
+                        <span id="auth-message">
+                            {{ $errors->first() }}
+                            @if(session('lockout_seconds'))
+                                Silakan tunggu <span id="auth-timer" style="font-weight: 700;">{{ session('lockout_seconds') }}</span> detik.
+                            @endif
+                        </span>
                     </div>
                 @endif
 
@@ -220,6 +225,38 @@
         </div>
     </div>
 
+@if(session('lockout_seconds'))
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let timerElement = document.getElementById('auth-timer');
+        let messageElement = document.getElementById('auth-message');
+        let alertElement = document.getElementById('auth-alert');
+        let submitBtn = document.querySelector('.btn-ems');
+        let seconds = parseInt("{{ session('lockout_seconds') }}");
+
+        if (submitBtn) {
+            submitBtn.style.opacity = '0.5';
+            submitBtn.style.pointerEvents = 'none';
+        }
+
+        let countdown = setInterval(function() {
+            seconds--;
+            
+            if (seconds <= 0) {
+                clearInterval(countdown);
+                messageElement.innerHTML = 'Silakan masukkan username dan password';
+                
+                if (submitBtn) {
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.pointerEvents = 'auto';
+                }
+            } else {
+                if (timerElement) timerElement.innerText = seconds;
+            }
+        }, 1000);
+    });
+</script>
+@endif
     <script src="https://cdn.jsdelivr.net/npm/jsencrypt@3.0.0-rc.1/bin/jsencrypt.min.js"></script>
     <script>
         document.getElementById('login-form').addEventListener('submit', function (e) {

@@ -94,12 +94,12 @@
 
     /* Styling khusus sub-menu */
     .submenu-item .nav-link {
-        padding: 10px 15px 10px 35px !important; /* Indentasi disesuaikan untuk icon */
+        padding: 10px 15px 10px 45px !important; /* Indentasi disesuaikan agar lebih menjorok */
         font-size: 0.85rem !important;
         color: #64748b !important;
         display: flex !important;
         align-items: center !important;
-        gap: 10px !important;
+        gap: 12px !important; /* Tambah gap icon dan text */
     }
     
     .submenu-item .nav-link:hover {
@@ -144,9 +144,9 @@
                     $isMasterDataActive = request()->is('admin/packages*') || request()->is('admin/code-esd*');
                 @endphp
                 <a class="nav-link justify-content-between {{ $isMasterDataActive ? 'active' : '' }}" 
-                   data-bs-toggle="collapse" 
-                   href="#masterDataMenu" 
-                   aria-expanded="{{ $isMasterDataActive ? 'true' : 'false' }}">
+                data-bs-toggle="collapse" 
+                href="#masterDataMenu" 
+                aria-expanded="{{ $isMasterDataActive ? 'true' : 'false' }}">
                     <div class="d-flex align-items-center gap-3">
                         <i class="bi bi-database-gear"></i>
                         <span>Master Data</span>
@@ -155,17 +155,16 @@
                 </a>
 
                 <div class="collapse {{ $isMasterDataActive ? 'show' : '' }}" id="masterDataMenu">
-                    <ul class="nav flex-column p-0 m-0 position-relative">
+                    <ul class="nav flex-column p-0 m-0 position-relative ps-2">
                         <li class="nav-item submenu-item position-relative">
                             <a href="{{ route('admin.packages.index') }}" 
-                               class="nav-link {{ request()->routeIs('admin.packages.*') ? 'active' : '' }}">
+                            class="nav-link ps-4 {{ request()->routeIs('admin.packages.*') ? 'active' : '' }}">
                                 <i class="bi bi-box-seam"></i> <span>Master Package</span>
                             </a>
                         </li>
                         <li class="nav-item submenu-item position-relative">
-                            <!-- Update routeIs agar persis membaca admin.code-esd karena controllernya code-esd -->
                             <a href="{{ route('admin.code-esd.index') }}" 
-                               class="nav-link {{ request()->routeIs('admin.code-esd.*') || request()->is('admin/code-esd*') ? 'active' : '' }}">
+                            class="nav-link ps-4 {{ request()->routeIs('admin.code-esd.*') || request()->is('admin/code-esd*') ? 'active' : '' }}">
                                 <i class="bi bi-upc-scan"></i> <span>Master Code ESD</span>
                             </a>
                         </li>

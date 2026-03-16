@@ -89,17 +89,31 @@
                             <option value="Backup" {{ old('category', $entity->category ?? '') === 'Backup' ? 'selected' : '' }}>Backup</option>
                         </select>
                     </div>
+                    <div class="col-md-2">
+                        <label class="input-label">Code ESD</label>
+                        <select name="code_esd" id="code_esd_select" class="form-select form-select-sm">
+                            <option value="">Pilih Code ESD</option>
+                            @foreach($codeEsds as $codeEsd)
+                                <option value="{{ $codeEsd->id }}" data-name="{{ $codeEsd->name }}"
+                                    {{ old('code_esd', $entity->code_esd ?? '') == $codeEsd->id ? 'selected' : '' }}>
+                                    {{ $codeEsd->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                      <div class="col-md-2">
                         <label class="input-label">Keterangan (Paket)</label>
-                        <select name="package" id="package_select" class="form-select form-select-sm">
+                        {{-- Disabled visually to prevent manual change --}}
+                        <select id="package_select_display" class="form-select form-select-sm" style="pointer-events: none; background: #e9ecef;" tabindex="-1">
                             <option value="">Pilih Paket</option>
                             @foreach($package as $pkg)
-                                <option value="{{ $pkg->package_name }}" 
+                                <option value="{{ $pkg->package_name }}" data-items='@json($pkg->items)'
                                     {{ trim(old('package', $entity->package ?? '')) == trim($pkg->package_name) ? 'selected' : '' }}>
                                     {{ $pkg->package_name }}
                                 </option>
                             @endforeach
                         </select>
+                        <input type="hidden" name="package" id="package_select" value="{{ old('package', $entity->package ?? '') }}">
                     </div>
                 </div>
 
@@ -201,33 +215,73 @@ $(document).ready(function() {
         $('#npk_display').val(d.npk);
     });
 
-    // Auto-fill Items by Package
-    $('#package_select').on('change', function() {
-        const selectedOption = $(this).find('option:selected');
-        const itemsData = selectedOption.data('items');
+    // Auto-fill Items by Package directly and from CodeESD
+    function triggerPackageFill(packageName, sizeExtraction = null) {
+        // Find the matching option in the hidden select (display select)
+        const selectedOption = $('#package_select_display').find(`option[value="${packageName}"]`);
+        
+        if (selectedOption.length > 0) {
+            const itemsData = selectedOption.data('items');
+            
+            if (itemsData && itemsData.length > 0) {
+                // Clear existing rows
+                $('#item-wrapper').empty();
+                rowIdx = 0;
 
-        if (itemsData && itemsData.length > 0) {
-            // Clear existing rows
-            $('#item-wrapper').empty();
-            rowIdx = 0;
+                // Iterate through the package items and populate
+                itemsData.forEach(function(item) {
+                    const template = $('#item-row-template').html();
+                    let html = template.replace(/ID_PLACEHOLDER/g, rowIdx);
+                    
+                    // Append first so we can find elements within the DOM
+                    $('#item-wrapper').append(html);
+                    
+                    // Set the values for the newly appended row
+                    const currentRow = $('#item-wrapper .item-row').last();
+                    currentRow.find('select[name^="items"][name$="[item_id]"]').val(item.id);
+                    currentRow.find('select[name^="items"][name$="[status]"]').val('Diterima');
+                    
+                    // Auto-fill size based on CodeESD extraction logic if sizeExtraction is provided
+                    if (sizeExtraction) {
+                        const itemNameLower = item.item_name.toLowerCase();
+                        if (itemNameLower.includes('baju') || itemNameLower.includes('celana') || itemNameLower.includes('smock')) {
+                            currentRow.find('input[name^="items"][name$="[size]"]').val(sizeExtraction);
+                        }
+                    }
 
-            // Iterate through the package items and populate
-            itemsData.forEach(function(item) {
-                const template = $('#item-row-template').html();
-                let html = template.replace(/ID_PLACEHOLDER/g, rowIdx);
-                
-                // Append first so we can find elements within the DOM
-                $('#item-wrapper').append(html);
-                
-                // Set the values for the newly appended row
-                const currentRow = $('#item-wrapper .item-row').last();
-                currentRow.find('select[name^="items"][name$="[item_id]"]').val(item.id);
-                // Status defaults to "Diterima" when auto-filling from a package typically
-                currentRow.find('select[name^="items"][name$="[status]"]').val('Diterima');
-                
-                rowIdx++;
-            });
+                    rowIdx++;
+                });
+            }
         }
+    }
+
+    // Listener for Code ESD selection
+    $('#code_esd_select').on('change', function() {
+        const selectedName = $(this).find('option:selected').data('name');
+        if (selectedName) {
+            // Extrack Package and Size. Example: "CTXL" -> Package "C", Size "XL"
+            let packageLetter = selectedName.substring(0, 1);
+            let sizeExtracted = selectedName.substring(2);
+            
+            // Adjust specific size mappings based on previous logic (2X -> 2XL)
+            if (sizeExtracted === '2X') sizeExtracted = '2XL';
+            if (sizeExtracted === '3X') sizeExtracted = '3XL';
+
+            // Set visual and hidden package inputs
+            $('#package_select_display').val(packageLetter);
+            $('#package_select').val(packageLetter);
+
+            triggerPackageFill(packageLetter, sizeExtracted);
+        } else {
+            $('#package_select_display').val('');
+            $('#package_select').val('');
+            $('#item-wrapper').empty();
+        }
+    });
+
+    // We keep this just in case manual trigger needed, but usually redundant now since codeEsd drives it
+    $('#package_select_display').on('change', function() {
+        // Will not trigger manually due to pointer-events:none
     });
 });
 </script>

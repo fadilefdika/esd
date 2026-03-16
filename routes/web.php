@@ -18,7 +18,7 @@ Route::get('/', function () {
 
 // Auth routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::get('/preview/{code}', [EntityController::class, 'preview'])->name('public.preview'); //preview page
@@ -49,7 +49,7 @@ Route::middleware(AdminAuth::class)->prefix('admin')->name('admin.')->group(func
 
     Route::resource('code-esd', CodeEsdController::class);
 
-   Route::get('/generate-spare', [EntityController::class, 'generateManualSpare']); 
+    Route::get('/generate-spare', [EntityController::class, 'generateManualSpare']); 
 
 
 });

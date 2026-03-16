@@ -59,13 +59,16 @@
                                     <small class="text-muted">Oleh ID: {{ $code->creator_id }}</small>
                                 </td> --}}
                                 <td class="text-center">
-                                    <div class="btn-action-group">
-                                        <a href="{{ route('admin.code-esd.edit', $code->id) }}" class="btn btn-sm" title="Edit">
-                                            <i class="bi bi-pencil"></i>
+                                    <div class="d-flex align-items-center justify-content-center gap-1">
+                                        <a href="{{ route('admin.code-esd.show', $code->id) }}" class="btn btn-sm" style="color: var(--primary-ems); border: 1px solid #eff6ff;" title="Lihat Monitoring Aset">
+                                            <i class="bi bi-eye"></i> Detail
+                                        </a>
+                                        <a href="{{ route('admin.code-esd.edit', $code->id) }}" class="btn btn-sm" title="Edit Kode">
+                                            <i class="bi bi-pencil" style="color: #64748b;"></i>
                                         </a>
                                         <form action="{{ route('admin.code-esd.destroy', $code->id) }}" method="POST" class="d-inline">
                                             @csrf @method('DELETE')
-                                            <button type="submit" class="btn btn-sm" onclick="return confirm('Hapus kode ESD ini?')">
+                                            <button type="submit" class="btn btn-sm" onclick="return confirm('Hapus kode ESD {{ $code->name }}?')">
                                                 <i class="bi bi-trash text-danger"></i>
                                             </button>
                                         </form>

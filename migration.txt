@@ -366,3 +366,25 @@ SELECT [id], [code], [employee_name], [status]
 FROM [dbo].[ENTITY]
 ORDER BY [id] ASC;
 GO
+
+
+// 11 maret 2026
+
+USE [esd];
+GO
+
+-- 1. Membuat tabel utama untuk penyimpanan Cache
+CREATE TABLE [dbo].[cache] (
+    [key] NVARCHAR(255) NOT NULL PRIMARY KEY,
+    [value] NVARCHAR(MAX) NOT NULL,
+    [expiration] INT NOT NULL
+);
+
+-- 2. Membuat tabel tambahan untuk penguncian (Locking)
+-- Ini sering dibutuhkan Laravel agar proses penulisan cache tidak bentrok
+CREATE TABLE [dbo].[cache_locks] (
+    [key] NVARCHAR(255) NOT NULL PRIMARY KEY,
+    [owner] NVARCHAR(255) NOT NULL,
+    [expiration] INT NOT NULL
+);
+GO

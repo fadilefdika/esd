@@ -15,23 +15,38 @@ class CodeEsdController extends Controller
         return view('admin.master-code-esd.index', compact('codeEsd'));
     }
 
+    public function create()
+    {
+        return view('admin.master-code-esd.form');
+    }
+
     public function store(Request $request)
     {
         $request->validate([
-            'code' => 'required|string|max:1024',
-            'description' => 'required|string|max:100',
-            'jumlah_karyawan' => 'required|integer',
+            'name' => 'required|string|max:255|unique:CODE_ESD,name',
         ]);
 
-        CodeEsd::create($request->all());
+        CodeEsd::create([
+            'name' => strtoupper($request->name),
+            'jumlah_karyawan' => 0,
+            'creator_id' => auth()->id() ?? 1,
+        ]);
 
-        return redirect()->route('admin.master-code-esd.index')->with('success', 'Data Berhasil Ditambahkan!');
+        return redirect()->route('admin.code-esd.index')->with('success', 'Master Code ESD Berhasil Ditambahkan!');
+    }
+
+    public function show($id)
+    {
+        // Eager load entities (Asset ESD yang memakai code ini)
+        $codeEsd = CodeEsd::with('entities')->findOrFail($id);
+        
+        return view('admin.master-code-esd.show', compact('codeEsd'));
     }
 
     public function edit($id)
     {
         $codeEsd = CodeEsd::findOrFail($id);
-        return view('admin.master-code-esd.edit', compact('codeEsd'));
+        return view('admin.master-code-esd.form', compact('codeEsd'));
     }
 
     public function update(Request $request, $id)
@@ -39,21 +54,27 @@ class CodeEsdController extends Controller
         $codeEsd = CodeEsd::findOrFail($id);
 
         $request->validate([
-            'code' => 'required|string|max:1024',
-            'description' => 'required|string|max:100',
-            'jumlah_karyawan' => 'required|integer',
+            'name' => 'required|string|max:255|unique:CODE_ESD,name,' . $id,
         ]);
 
-        $codeEsd->update($request->all());
+        $codeEsd->update([
+            'name' => strtoupper($request->name)
+        ]);
+        // Note: jumlah_karyawan & creator_id tidak diupdate manual dari form
 
-        return redirect()->route('admin.master-code-esd.index')->with('success', 'Data Berhasil Diupdate!');
+        return redirect()->route('admin.code-esd.index')->with('success', 'Master Code ESD Berhasil Diupdate!');
     }
 
     public function destroy($id)
     {
         $codeEsd = CodeEsd::findOrFail($id);
+        
+        if ($codeEsd->entities()->count() > 0) {
+            return redirect()->route('admin.code-esd.index')->with('error', 'Gagal: Master Code ESD ini sedang digunakan oleh Asset/Karyawan!');
+        }
+
         $codeEsd->delete();
 
-        return redirect()->route('admin.master-code-esd.index')->with('success', 'Data Berhasil Dihapus!');
+        return redirect()->route('admin.code-esd.index')->with('success', 'Master Code ESD Berhasil Dihapus!');
     }
 }
