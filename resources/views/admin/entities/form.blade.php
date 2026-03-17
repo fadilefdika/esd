@@ -91,11 +91,22 @@
                     </div>
                      <div class="col-md-2">
                         <label class="input-label">Keterangan (Paket)</label>
-                        <select name="package" id="package_select" class="form-select form-select-sm">
+                        {{-- <select name="package" id="package_select" class="form-select form-select-sm">
                             <option value="">Pilih Paket</option>
                             @foreach($package as $pkg)
                                 <option value="{{ $pkg->package_name }}" 
                                     {{ trim(old('package', $entity->package ?? '')) == trim($pkg->package_name) ? 'selected' : '' }}>
+                                    {{ $pkg->package_name }}
+                                </option>
+                            @endforeach
+                        </select> --}}
+                        <select name="package" id="package_select" class="form-select form-select-sm">
+                            <option value="">Pilih Paket</option>
+                            @foreach($package as $pkg)
+                                <option value="{{ $pkg->package_name }}" 
+                                        {{-- Simpan data items paket di sini --}}
+                                        data-items='@json($pkg->items)'
+                                        {{ trim(old('package', $entity->package ?? '')) == trim($pkg->package_name) ? 'selected' : '' }}>
                                     {{ $pkg->package_name }}
                                 </option>
                             @endforeach
@@ -204,31 +215,41 @@ $(document).ready(function() {
     // Auto-fill Items by Package
     $('#package_select').on('change', function() {
         const selectedOption = $(this).find('option:selected');
-        const itemsData = selectedOption.data('items');
+        const itemsData = selectedOption.data('items'); // Ini akan mengambil array item
 
         if (itemsData && itemsData.length > 0) {
-            // Clear existing rows
+            // 1. Kosongkan baris item yang ada sekarang
             $('#item-wrapper').empty();
             rowIdx = 0;
 
-            // Iterate through the package items and populate
+            // 2. Loop setiap item dari paket
             itemsData.forEach(function(item) {
                 const template = $('#item-row-template').html();
+                // Ganti placeholder ID dengan index saat ini
                 let html = template.replace(/ID_PLACEHOLDER/g, rowIdx);
                 
-                // Append first so we can find elements within the DOM
+                // 3. Tambahkan ke wrapper
                 $('#item-wrapper').append(html);
                 
-                // Set the values for the newly appended row
+                // 4. Isi nilainya secara otomatis
                 const currentRow = $('#item-wrapper .item-row').last();
+                
+                // Set value Item ID
                 currentRow.find('select[name^="items"][name$="[item_id]"]').val(item.id);
-                // Status defaults to "Diterima" when auto-filling from a package typically
+                
+                // Set default status (misal: Diterima)
                 currentRow.find('select[name^="items"][name$="[status]"]').val('Diterima');
+
+                // Opsional: Set Tanggal Terima ke hari ini
+                const today = new Date().toISOString().split('T')[0];
+                currentRow.find('input[name^="items"][name$="[receive_date]"]').val(today);
                 
                 rowIdx++;
             });
         }
     });
-});
+
+
+    });
 </script>
 @endpush

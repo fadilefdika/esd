@@ -141,6 +141,7 @@
                             <th>Info Karyawan</th>
                             <th class="text-center">ID / QR</th>
                             <th>Departemen</th>
+                            <th>Kategori</th>
                             <th class="text-center">Code ESD</th>
                             <th class="text-center">Status</th>
                             <th class="text-center" width="120">Aksi</th>
@@ -181,6 +182,11 @@
                                 </td>
                                 <td>
                                     <span class="text-dark fw-medium">{{ $entity->dept_name ?? '-' }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary px-2 py-1" style="font-size: 0.70rem;">
+                                        {{ $entity->category }}
+                                    </span>
                                 </td>
                                 <td class="text-center">
                                     <span class="badge bg-secondary px-2 py-1" style="font-size: 0.70rem;">{{ $entity->codeEsd->name ?? '-' }}</span>

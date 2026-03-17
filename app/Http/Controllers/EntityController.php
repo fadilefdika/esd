@@ -140,8 +140,8 @@ class EntityController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'npk'           => 'required|string|max:1024',
-            'employee_name' => 'required|string|max:100',
+            'npk'           => 'nullable|string|max:1024',
+            'employee_name' => 'nullable|string|max:100',
             'items'         => 'nullable|array', 
         ]);
 
@@ -163,35 +163,81 @@ class EntityController extends Controller
                 'creator_id'     => $currentUserId,
                 'category'       => $request->category ?? '-',
                 'information'    => $request->information ?? '-',
+                'package'        => $request->package ?? '-',
             ]);
 
-            if ($request->has('items')) {
+            // CRITICAL CHECK: Pastikan ID didapat dari SQL Server
+            if (!$entity->id) {
+                throw new \Exception("Gagal mendapatkan ID Entity. Pastikan kolom ID di tabel ENTITY adalah IDENTITY.");
+            }
+
+            if ($request->has('items') && is_array($request->items)) {
+                // Kita gunakan array tracker agar set_no akurat meski item sama dalam 1 request
+                $localItemCounters = [];
+
                 foreach ($request->items as $item) {
-                    $entity->items()->attach($item['item_id'], [
-                        'size'       => $item['size'] ?? null,
-                        'notes'      => $item['notes'] ?? null,
-                        'creator_id' => $currentUserId,
-                        'status'     => $item['status'] ?? '-',
+                    $itemId = $item['item_id'];
+
+                    // Ambil set_no terakhir dari DB
+                    $dbMax = DB::table('ENTITY_DETAIL_ITEM')
+                        ->where('entity_id', $entity->id)
+                        ->where('item_id', $itemId)
+                        ->max('set_no') ?? 0;
+
+                    // Cek apakah di loop ini kita sudah menambah item yang sama
+                    if (!isset($localItemCounters[$itemId])) {
+                        $localItemCounters[$itemId] = $dbMax + 1;
+                    } else {
+                        $localItemCounters[$itemId]++;
+                    }
+
+                    $newSetNo = $localItemCounters[$itemId];
+
+                    // Gunakan DB table insert jika attach() bermasalah dengan Composite Key
+                    $det = DB::table('ENTITY_DETAIL_ITEM')->insert([
+                        'entity_id'    => $entity->id,
+                        'item_id'      => $itemId,
+                        'set_no'       => $newSetNo,
+                        'size'         => $item['size'] ?? null,
+                        'notes'        => $item['notes'] ?? null,
+                        'creator_id'   => $currentUserId,
+                        'status'       => $item['status'] ?? '-',
                         'receive_date' => $item['receive_date'] ?? null,
-                        'return_date' => $item['return_date'] ?? null,
+                        'return_date'  => $item['return_date'] ?? null,
                         'return_notes' => $item['return_notes'] ?? '-',
                     ]);
                 }
             }
-
+                        
             DB::commit();
-            //return response()->json(['message' => 'Entity berhasil dibuat', 'data' => $entity], 201);
             return redirect()->route('admin.entities.index')->with('success', 'Entity Successfully Registered.');
 
         } catch (\Exception $e) {
             DB::rollBack();
+            // Mempermudah debugging: Log error aslinya
+            \Log::error("Gagal Simpan Entity: " . $e->getMessage());
             return response()->json(['message' => 'Gagal simpan: ' . $e->getMessage()], 500);
         }
     }
 
+    // public function edit($id)
+    // {
+    //     $entity = Entity::with('items')->findOrFail($id);
+    //     $items = Item::all(); 
+    //     $package = Package::with('items')->get();
+
+    //     return view('admin.entities.form', compact('entity', 'items', 'package'));
+    // }
+
     public function edit($id)
     {
-        $entity = Entity::with('items')->findOrFail($id);
+        // Tambahkan sorting agar urutan set_no konsisten di view
+        $entity = Entity::with(['items' => function($q) {
+            $q->orderBy('ENTITY_DETAIL_ITEM.set_no', 'asc');
+        }])->findOrFail($id);
+        
+        // dd($entity->items);
+
         $items = Item::all(); 
         $package = Package::with('items')->get();
 
@@ -219,32 +265,95 @@ class EntityController extends Controller
         return response()->json($entity);
     }
 
+    // public function update(Request $request, $id)
+    // {
+    //     $entity = Entity::find($id);
+
+    //     if (!$entity) {
+    //         return response()->json(['message' => 'Data tidak ditemukan'], 404);
+    //     }
+
+    //     $entity->update($request->except(['id', 'creator_id']));
+
+    //     if ($request->has('items')) {
+    //         $currentUserId = Auth::id() ?? $request->creator_id;
+    //         $syncData = [];
+    //         foreach ($request->items as $item) {
+    //             $syncData[$item['item_id']] = [
+    //                 'size'       => $item['size'] ?? null,
+    //                 'notes'      => $item['notes'] ?? null,
+    //                 'creator_id' => $currentUserId,
+    //             ];
+    //         }
+    //         $entity->items()->sync($syncData);
+    //     }
+
+    //     //return response()->json(['message' => 'Entity berhasil diperbarui', 'data' => $entity]);
+    //     return redirect()->route('admin.entities.index')->with('success', 'Entity Successfully Updated.');
+
+    // }
+
+    
     public function update(Request $request, $id)
     {
         $entity = Entity::find($id);
 
         if (!$entity) {
-            return response()->json(['message' => 'Data tidak ditemukan'], 404);
+            return redirect()->back()->with('error', 'Data tidak ditemukan');
         }
 
-        $entity->update($request->except(['id', 'creator_id']));
+        try {
+            DB::beginTransaction();
 
-        if ($request->has('items')) {
-            $currentUserId = Auth::id() ?? $request->creator_id;
-            $syncData = [];
-            foreach ($request->items as $item) {
-                $syncData[$item['item_id']] = [
-                    'size'       => $item['size'] ?? null,
-                    'notes'      => $item['notes'] ?? null,
-                    'creator_id' => $currentUserId,
-                ];
+            // 1. Update data utama
+            $entity->update($request->except(['id', 'creator_id']));
+
+            if ($request->has('items')) {
+                $currentUserId = Auth::id() ?? $request->creator_id;
+
+                // 2. PAKSA HAPUS menggunakan DB::table untuk memastikan baris benar-benar hilang
+                DB::table('ENTITY_DETAIL_ITEM')->where('entity_id', $id)->delete();
+
+                // 3. Siapkan data untuk Bulk Insert (Lebih cepat dan aman)
+                $insertData = [];
+                $itemCounters = [];
+
+                foreach ($request->items as $item) {
+                    $itemId = $item['item_id'];
+
+                    if (!isset($itemCounters[$itemId])) {
+                        $itemCounters[$itemId] = 1;
+                    } else {
+                        $itemCounters[$itemId]++;
+                    }
+
+                    $insertData[] = [
+                        'entity_id'    => $id,
+                        'item_id'      => $itemId,
+                        'set_no'       => $itemCounters[$itemId],
+                        'size'         => $item['size'] ?? null,
+                        'notes'        => $item['notes'] ?? null,
+                        'creator_id'   => $currentUserId,
+                        'status'       => $item['status'] ?? '-',
+                        'receive_date' => $item['receive_date'] ?? null,
+                        'return_date'  => $item['return_date'] ?? null,
+                        'return_notes' => $item['return_notes'] ?? '-',
+                    ];
+                }
+
+                // 4. Lakukan Bulk Insert langsung ke tabel pivot
+                if (!empty($insertData)) {
+                    DB::table('ENTITY_DETAIL_ITEM')->insert($insertData);
+                }
             }
-            $entity->items()->sync($syncData);
+
+            DB::commit();
+            return redirect()->route('admin.entities.index')->with('success', 'Entity Successfully Updated.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Gagal update: ' . $e->getMessage());
         }
-
-        //return response()->json(['message' => 'Entity berhasil diperbarui', 'data' => $entity]);
-        return redirect()->route('admin.entities.index')->with('success', 'Entity Successfully Updated.');
-
     }
 
     public function destroy($id)
@@ -275,88 +384,88 @@ class EntityController extends Controller
      * Menggunakan logika: Target - Data Karyawan yang Sudah Ada = Sisa Stok yang Perlu QR.
      */
     public function generateManualSpare()
-{
-    $matrix = [
-        'ATS'   => ['Pemagangan' => 3],
-        'ATM'   => ['Pemagangan' => 3],
-        'ATL'   => ['Pemagangan' => 3, 'OB' => 5, 'PKL' => 2],
-        'ATXL'  => ['Pemagangan' => 3, 'PKL' => 2],
-        'AT2XL' => ['PKL' => 2],
-        'AT3XL' => ['OB' => 1],
-        'BJS'   => ['Pemagangan' => 7],
-        'BJM'   => ['Pemagangan' => 5],
-        'BJL'   => ['Pemagangan' => 5],
-        'BJXL'  => ['Pemagangan' => 3],
-        'CTM'   => ['Tamu' => 5],
-        'CTL'   => ['Supplier' => 5, 'Tamu' => 5],
-        'CTXL'  => ['Supplier' => 5, 'Tamu' => 5],
-        'CT2XL' => ['Supplier' => 5, 'Tamu' => 5],
-        'CT3XL' => ['Tamu' => 2],
-    ];
+    {
+        $matrix = [
+            'ATS'   => ['Pemagangan' => 3],
+            'ATM'   => ['Pemagangan' => 3],
+            'ATL'   => ['Pemagangan' => 3, 'OB' => 5, 'PKL' => 2],
+            'ATXL'  => ['Pemagangan' => 3, 'PKL' => 2],
+            'AT2XL' => ['PKL' => 2],
+            'AT3XL' => ['OB' => 1],
+            'BJS'   => ['Pemagangan' => 7],
+            'BJM'   => ['Pemagangan' => 5],
+            'BJL'   => ['Pemagangan' => 5],
+            'BJXL'  => ['Pemagangan' => 3],
+            'CTM'   => ['Tamu' => 5],
+            'CTL'   => ['Supplier' => 5, 'Tamu' => 5],
+            'CTXL'  => ['Supplier' => 5, 'Tamu' => 5],
+            'CT2XL' => ['Supplier' => 5, 'Tamu' => 5],
+            'CT3XL' => ['Tamu' => 2],
+        ];
 
-    \DB::beginTransaction();
-   try {
-        // 1. Hitung nomor urut awal SEKALI saja di luar loop
-        $year = date('Y');
-        $latest = Entity::whereYear('created_at', $year)->latest('id')->first();
-        $nextNumber = $latest ? (intval(substr($latest->code, -4)) + 1) : 1;
+        \DB::beginTransaction();
+        try {
+            // 1. Hitung nomor urut awal SEKALI saja di luar loop
+            $year = date('Y');
+            $latest = Entity::whereYear('created_at', $year)->latest('id')->first();
+            $nextNumber = $latest ? (intval(substr($latest->code, -4)) + 1) : 1;
 
-        foreach ($matrix as $kode => $categories) {
-            $packageLetter = substr($kode, 0, 1); 
-            $extractedSize = substr($kode, 2); 
-            if ($extractedSize == '2X') $extractedSize = '2XL';
-            if ($extractedSize == '3X') $extractedSize = '3XL';
+            foreach ($matrix as $kode => $categories) {
+                $packageLetter = substr($kode, 0, 1); 
+                $extractedSize = substr($kode, 2); 
+                if ($extractedSize == '2X') $extractedSize = '2XL';
+                if ($extractedSize == '3X') $extractedSize = '3XL';
 
-            $package = \App\Models\Package::where('package_name', $packageLetter)->with('items')->first();
-            $codeEsd = \DB::table('CODE_ESD')->where('name', $kode)->first();
+                $package = \App\Models\Package::where('package_name', $packageLetter)->with('items')->first();
+                $codeEsd = \DB::table('CODE_ESD')->where('name', $kode)->first();
 
-            foreach ($categories as $categoryName => $count) {
-                for ($i = 1; $i <= $count; $i++) {
-                    
-                    // 2. Buat string kode secara manual agar urut dan unik
-                    $manualCode = 'ENT-' . $year . '-' . str_pad($nextNumber++, 4, '0', STR_PAD_LEFT);
+                foreach ($categories as $categoryName => $count) {
+                    for ($i = 1; $i <= $count; $i++) {
+                        
+                        // 2. Buat string kode secara manual agar urut dan unik
+                        $manualCode = 'ENT-' . $year . '-' . str_pad($nextNumber++, 4, '0', STR_PAD_LEFT);
 
-                    $entity = Entity::create([
-                        'code'          => $manualCode, // Isi manual untuk menghindari redundansi
-                        'npk'           => null, 
-                        'employee_name' => null, 
-                        'dept_name'     => null, 
-                        'status'        => 'AVAILABLE',
-                        'category'      => $categoryName,
-                        'package'       => $packageLetter,
-                        'total_set_esd' => 1,
-                        'code_esd'      => $codeEsd->id ?? null,
-                        'creator_id'    => 1,
-                    ]);
+                        $entity = Entity::create([
+                            'code'          => $manualCode, // Isi manual untuk menghindari redundansi
+                            'npk'           => null, 
+                            'employee_name' => null, 
+                            'dept_name'     => null, 
+                            'status'        => 'AVAILABLE',
+                            'category'      => $categoryName,
+                            'package'       => $packageLetter,
+                            'total_set_esd' => 1,
+                            'code_esd'      => $codeEsd->id ?? null,
+                            'creator_id'    => 1,
+                        ]);
 
-                    if ($package) {
-                        $details = [];
-                        foreach ($package->items as $item) {
-                            $itemSize = (string)$extractedSize;
-                            if ($item->id == 5) $itemSize = null;
+                        if ($package) {
+                            $details = [];
+                            foreach ($package->items as $item) {
+                                $itemSize = (string)$extractedSize;
+                                if ($item->id == 5) $itemSize = null;
 
-                            $details[] = [
-                                'entity_id'  => $entity->id,
-                                'item_id'    => $item->id,
-                                'size'       => $itemSize,
-                                'notes'      => 'Set ke-1',
-                                'created_at' => now(),
-                                'updated_at' => now(),
-                                'creator_id' => 1,
-                                'status'     => 'AVAILABLE',
-                                'set_no'     => 1,
-                            ];
+                                $details[] = [
+                                    'entity_id'  => $entity->id,
+                                    'item_id'    => $item->id,
+                                    'size'       => $itemSize,
+                                    'notes'      => 'Set ke-1',
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                    'creator_id' => 1,
+                                    'status'     => 'AVAILABLE',
+                                    'set_no'     => 1,
+                                ];
+                            }
+                            \DB::table('ENTITY_DETAIL_ITEM')->insert($details);
                         }
-                        \DB::table('ENTITY_DETAIL_ITEM')->insert($details);
                     }
                 }
             }
+            \DB::commit();
+            return response()->json(['message' => 'Berhasil menambahkan 81 data Spare tanpa redundansi!']);
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-        \DB::commit();
-        return response()->json(['message' => 'Berhasil menambahkan 81 data Spare tanpa redundansi!']);
-    } catch (\Exception $e) {
-        \DB::rollBack();
-        return response()->json(['error' => $e->getMessage()], 500);
     }
-}
 }

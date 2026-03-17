@@ -134,6 +134,11 @@ GO
 -- 1. Mengubah nama kolom 'information' menjadi 'package'
 EXEC sp_rename '[dbo].[ENTITY].information', 'package', 'COLUMN';
 
+CREATE TABLE ITEM (
+    id INT PRIMARY KEY, -- Nama kolom disederhanakan menjadi id
+    item_name VARCHAR(100)
+);
+
 -- 2. Menambahkan kolom baru: 'code_esd' dan 'total_set_esd'
 ALTER TABLE [dbo].[ENTITY]
 ADD [code_esd] VARCHAR(100) NULL,

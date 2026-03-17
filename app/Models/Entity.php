@@ -10,15 +10,35 @@ class Entity extends Model
     protected $fillable = [
         'id', 'code', 'npk', 'employee_name', 'dept_id', 'dept_name', 
         'no_loker', 'line_id', 'line_name', 'status', 'entity_link_qr',
-        'created_at', 'updated_at', 'creator_id', 'category', 'package', 'code_esd', 'total_set_esd'
+        'created_at', 'updated_at', 'creator_id', 'category', 'package', 'code_esd', 'total_set_esd', 'package', 'code_esd'
     ];
 
     public $incrementing = true;
 
+    // public function items()
+    // {
+    //     return $this->belongsToMany(Item::class, 'ENTITY_DETAIL_ITEM', 'entity_id', 'item_id', 'set_no')
+    //                 ->withPivot('size', 'notes', 'creator_id', 'status', 'receive_date', 'return_date', 'return_notes');
+    // }
+
+    // app/Models/Entity.php
+
     public function items()
     {
-        return $this->belongsToMany(Item::class, 'ENTITY_DETAIL_ITEM', 'entity_id', 'item_id')
-                    ->withPivot('size', 'notes', 'creator_id', 'status', 'receive_date', 'return_date', 'return_notes');
+        // Struktur: belongsToMany(ModelTujuan, NamaTabelPivot, FK_TabelIni, FK_TabelTujuan)
+        return $this->belongsToMany(
+            Item::class, 
+            'ENTITY_DETAIL_ITEM', 
+            'entity_id', 
+            'item_id'
+        )->withPivot([
+            'set_no', 
+            'size', 
+            'status', 
+            'receive_date', 
+            'return_date', 
+            'return_notes'
+        ]);
     }
 
     public function transactions()

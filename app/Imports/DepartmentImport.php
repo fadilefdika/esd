@@ -19,6 +19,8 @@ class DepartmentImport implements ToModel, WithHeadingRow, WithCalculatedFormula
 
     public function model(array $row)
     {
+        set_time_limit(600);
+        ini_set('memory_limit', '512M');
         $npk = isset($row['npk']) ? trim((string)$row['npk']) : null;
         if (empty($npk)) return null;
 
