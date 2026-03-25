@@ -315,9 +315,29 @@
             });
 
             // SweetAlert for Delete Action
-            $('.btn-delete').on('click', function(e) {
+            // $('.btn-delete').on('click', function(e) {
+            //     e.preventDefault();
+            //     const form = $(this).closest('form');
+            //     Swal.fire({
+            //         title: 'Hapus Data?',
+            //         text: 'Apakah Anda yakin ingin menghapus data ini?',
+            //         icon: 'warning',
+            //         showCancelButton: true,
+            //         confirmButtonColor: '#dc3545',
+            //         cancelButtonColor: '#64748b',
+            //         confirmButtonText: 'Ya, Hapus!',
+            //         cancelButtonText: 'Batal'
+            //     }).then((result) => {
+            //         if (result.isConfirmed) {
+            //             form.submit();
+            //         }
+            //     });
+            // });
+
+            $(document).on('click', '.btn-delete', function(e) {
                 e.preventDefault();
                 const form = $(this).closest('form');
+                
                 Swal.fire({
                     title: 'Hapus Data?',
                     text: 'Apakah Anda yakin ingin menghapus data ini?',
