@@ -3,3 +3,15 @@
 body {
     font-family: "figtree", sans-serif;
 }
+
+/* Untuk Chrome, Safari, Edge, dan Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+/* Untuk Firefox */
+input[type="number"] {
+    -moz-appearance: textfield !important;
+}
