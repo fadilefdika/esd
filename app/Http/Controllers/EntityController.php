@@ -34,6 +34,11 @@ class EntityController extends Controller
         return view('public.preview', compact('entity'));
     }
 
+    public function laundryForm($code) {
+        $entity = Entity::where('code', $code)->firstOrFail();
+        return view('public.laundry_form', compact('entity'));
+    }
+
     public function proxyAwork(Request $request)
     {
         try {

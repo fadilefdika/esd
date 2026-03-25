@@ -114,10 +114,10 @@
                 </div>
                 
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-primary btn-sm px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#importModal">
+                    {{-- <button type="button" class="btn btn-outline-primary btn-sm px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#importModal">
                         <i class="bi bi-file-earmark-excel me-1"></i>
                         Import Excel
-                    </button>
+                    </button> --}}
 
                     <a href="{{ route('admin.entities.download-all-qr') }}"
                         class="btn btn-outline-success btn-sm px-3 fw-semibold btn-download-all">

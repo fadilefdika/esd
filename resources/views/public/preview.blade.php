@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Informasi Loker - {{ $entity->employee_name ?? 'Available' }}</title>
+    <title>EMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
@@ -218,13 +218,13 @@
                 </table>
             </div>
 
-            <a href="#" class="btn btn-submit">
-                <i class="bi bi-droplet me-2"></i> Submit Laundry
+            <a href="{{ route('public.laundry.form', $entity->code) }}" class="btn btn-submit">
+                <i class="bi bi-file-earmark-text me-2"></i> Form Transaksi ESD
             </a>
 
             <div class="text-center mt-5">
                 <p class="text-muted mb-0" style="font-size: 0.75rem;">Astra Visteon Indonesia &copy; {{ date('Y') }}</p>
-                <p class="text-muted" style="font-size: 0.7rem;">Code ESD Management System</p>
+                <p class="text-muted" style="font-size: 0.7rem;">ESD Management System</p>
             </div>
 
         </div>
