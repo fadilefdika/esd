@@ -14,6 +14,11 @@ class Transaction extends Model
         'created_at', 'updated_at', 'creator_id'
     ];
 
+    protected $casts = [
+        'transaction_start_date' => 'datetime',
+        'transaction_end_date' => 'datetime',
+    ];
+
     public function entity()
     {
         return $this->belongsTo(Entity::class, 'entity_id', 'id');

@@ -149,9 +149,10 @@
                 </div>
 
                 <!-- Form UI Dummy -->
-                <form action="#" method="POST" id="formTransaksi">
+                <form action="{{ route('admin.transactions.store') }}" method="POST" id="formTransaksi">
                     @csrf
                     
+                    <input type="hidden" name="entity_id" value="{{ $entity->id }}">
                     <div class="mb-2">
                         <label class="form-label">Code ESD</label>
                         <input type="text" class="form-control" name="code_esd" value="{{ $entity->code }}" readonly>
@@ -328,7 +329,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<script>
+{{-- <script>
     document.addEventListener('DOMContentLoaded', function() {
 
         let strukModal;
@@ -376,6 +377,67 @@
             alert('Sukses! Data (bersama detail checkbox item) berhasil di-submit ke backend.');
             if(strukModal) strukModal.hide();
             // document.getElementById('formTransaksi').submit(); // Tunggu backend siap
+        });
+    });
+</script> --}}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let strukModal = new bootstrap.Modal(document.getElementById('strukModal'));
+
+        // Tombol Proses (Validasi & Tampil Struk)
+        document.getElementById('btnProses').addEventListener('click', function() {
+            const jenis = document.querySelector('select[name="jenis_transaksi"]').value;
+            let checkedItems = [];
+            document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
+                checkedItems.push(cb.dataset.label);
+            });
+            
+            if(!jenis) { alert('Harap pilih Jenis Transaksi!'); return; }
+            if(checkedItems.length === 0) { alert('Pilih minimal 1 item!'); return; }
+
+            document.getElementById('struk-jenis').innerText = jenis;
+            const ul = document.getElementById('struk-items');
+            ul.innerHTML = '';
+            checkedItems.forEach(item => {
+                ul.innerHTML += `<li class="mb-2 d-flex justify-content-between"><span>${item}</span><span class="badge bg-secondary">1x</span></li>`;
+            });
+            document.getElementById('struk-total').innerText = checkedItems.length;
+            strukModal.show();
+        });
+
+        // Tombol Konfirmasi (Kirim ke Backend)
+        document.getElementById('btnSubmitFinal').addEventListener('click', function() {
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+
+            const form = document.getElementById('formTransaksi');
+            const formData = new FormData(form);
+
+            fetch("{{ route('admin.transactions.store') }}", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    alert(data.message);
+                    location.reload(); // Refresh untuk melihat perubahan status
+                } else {
+                    alert(data.message || 'Terjadi kesalahan');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Konfirmasi & Submit';
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                alert('Gagal menghubungi server');
+                btn.disabled = false;
+            });
         });
     });
 </script>

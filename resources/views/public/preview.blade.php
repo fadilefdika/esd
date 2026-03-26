@@ -179,7 +179,7 @@
                     @endif
                 </div>
             </div>
-
+            
             <div class="card-main mb-3">
                 <div class="text-center pt-3 pb-2 border-bottom" style="border-color: #f1f5f9 !important;">
                     <div class="avatar-circle-lg">
@@ -190,6 +190,20 @@
                         <p class="text-muted mb-2" style="font-size: 0.70rem;">NPK: {{ $entity->npk }}</p>
                     @else
                         <h6 class="fw-bold text-success fst-italic mb-2">Tersedia (Available)</h6>
+                    @endif
+                </div>
+
+                <div class="text-center mb-3">
+                    @if($status === 'IN LAUNDRY')
+                        <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
+                            <span class="spinner-grow spinner-grow-sm me-2" role="status"></span>
+                            <span class="fw-bold" style="font-size: 0.75rem;">SEDANG DI LAUNDRY</span>
+                        </div>
+                    @else
+                        <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            <span class="fw-bold" style="font-size: 0.75rem;">AVAILABLE / READY</span>
+                        </div>
                     @endif
                 </div>
 
@@ -243,56 +257,36 @@
             <div class="card-main p-3 mt-4 mb-3">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="fw-bold text-dark mb-0" style="font-size: 0.85rem;"><i class="bi bi-clock-history me-2 text-primary"></i>Riwayat Transaksi</h6>
-                    <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">5 Log</span>
+                    <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">{{ $histories->count() }}</span>
                 </div>
                 
                 <div class="timeline-wrapper">
                     <div class="timeline-container ps-3" style="border-left: 2px solid #e2e8f0; margin-left: 8px;">
                         
-                        <!-- Item 1 -->
-                        <div class="position-relative mb-4">
-                            <span class="position-absolute top-0 start-0 translate-middle p-1 bg-success border border-light rounded-circle" style="left: -1px !important; margin-top: 6px;"></span>
-                            <div class="ms-3">
-                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #1e293b;">Selesai Dicuci (Ready Pick-up)</h6>
-                                <p class="text-muted mb-0" style="font-size: 0.7rem;">23 Mar 2026, 14:00 - Vendor A</p>
+                        @forelse($histories as $log)
+                            <div class="timeline-item mb-3" style="position: relative;">
+                                <div style="position: absolute; left: -18px; top: 5px; width: 10px; height: 10px; border-radius: 50%; 
+                                    background: {{ $log->transaction_status == 'OPEN' ? '#f59e0b' : '#10b981' }}; border: 2px solid #fff;">
+                                </div>
+                                
+                                <div class="ps-2">
+                                    <div class="fw-bold text-dark" style="font-size: 0.8rem;">
+                                        {{ $log->transaction_type }}
+                                        @if($log->transaction_status == 'OPEN')
+                                            <small class="text-warning fw-normal">(Proses)</small>
+                                        @endif
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">
+                                        {{ $log->transaction_start_date->format('d M Y, H:i') }} - 
+                                        <span class="text-primary">{{ $log->creator->name ?? 'System' }}</span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        
-                        <!-- Item 2 -->
-                        <div class="position-relative mb-4">
-                            <span class="position-absolute top-0 start-0 translate-middle p-1" style="left: -1px !important; margin-top: 6px; background-color: #cbd5e1; border: 2px solid white; border-radius: 50%;"></span>
-                            <div class="ms-3">
-                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #64748b;">Sedang Diproses (Dicuci)</h6>
-                                <p class="text-muted mb-0" style="font-size: 0.7rem;">22 Mar 2026, 09:15 - Vendor A</p>
+                        @empty
+                            <div class="text-center py-3 text-muted" style="font-size: 0.75rem;">
+                                Belum ada riwayat transaksi.
                             </div>
-                        </div>
-
-                        <!-- Item 3 -->
-                        <div class="position-relative mb-4">
-                            <span class="position-absolute top-0 start-0 translate-middle p-1" style="left: -1px !important; margin-top: 6px; background-color: #cbd5e1; border: 2px solid white; border-radius: 50%;"></span>
-                            <div class="ms-3">
-                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #64748b;">Diserahkan ke Laundry</h6>
-                                <p class="text-muted mb-0" style="font-size: 0.7rem;">21 Mar 2026, 08:30 - Oleh Karyawan</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Item 4 -->
-                        <div class="position-relative mb-4">
-                            <span class="position-absolute top-0 start-0 translate-middle p-1" style="left: -1px !important; margin-top: 6px; background-color: #cbd5e1; border: 2px solid white; border-radius: 50%;"></span>
-                            <div class="ms-3">
-                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #64748b;">Pengembalian Pasca-Laundry</h6>
-                                <p class="text-muted mb-0" style="font-size: 0.7rem;">15 Feb 2026, 16:00 - Oleh Karyawan</p>
-                            </div>
-                        </div>
-
-                        <!-- Item 5 -->
-                        <div class="position-relative">
-                            <span class="position-absolute top-0 start-0 translate-middle p-1" style="left: -1px !important; margin-top: 6px; background-color: #cbd5e1; border: 2px solid white; border-radius: 50%;"></span>
-                            <div class="ms-3">
-                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #64748b;">Distribusi Awal</h6>
-                                <p class="text-muted mb-0" style="font-size: 0.7rem;">10 Jan 2026, 10:00 - Admin</p>
-                            </div>
-                        </div>
+                        @endforelse
 
                     </div>
                 </div>

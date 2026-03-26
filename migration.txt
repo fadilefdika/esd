@@ -388,3 +388,11 @@ CREATE TABLE [dbo].[cache_locks] (
     [expiration] INT NOT NULL
 );
 GO
+
+//update 17 maret zaqy
+
+-- update kategori yg - ke karyawan
+UPDATE entity 
+SET category = 'Karyawan' 
+WHERE category = '-';
+

@@ -7,6 +7,7 @@ use App\Models\CodeEsd;
 use App\Models\Entity;
 use App\Models\Item;
 use App\Models\Package;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -24,14 +25,25 @@ class EntityController extends Controller
     public function index()
     {
         $entities = Entity::all();
-        //return response()->json($entities);
         return view('admin.entities.index', compact('entities'));
     }
 
     public function preview($code) {
-        // Cari berdasarkan kolom code, bukan find()
         $entity = Entity::where('code', $code)->firstOrFail();
-        return view('public.preview', compact('entity'));
+
+        $isLaundry = Transaction::where('entity_id', $entity->id)
+        ->where('transaction_type', 'Serah ke laundry')
+        ->where('transaction_status', 'OPEN')
+        ->exists();
+
+        $status = $isLaundry ? 'IN LAUNDRY' : 'AVAILABLE';
+
+        $histories = Transaction::where('entity_id', $entity->id)
+        ->latest()
+        //->take(5)
+        ->get();
+
+        return view('public.preview', compact('entity', 'status', 'histories'));
     }
 
     public function laundryForm($code)
