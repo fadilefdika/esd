@@ -34,9 +34,10 @@ class EntityController extends Controller
         return view('public.preview', compact('entity'));
     }
 
-    public function laundryForm($code) {
-        $entity = Entity::where('code', $code)->firstOrFail();
-        return view('public.laundry_form', compact('entity'));
+    public function laundryForm($code)
+    {
+        $entity = Entity::where('code', $code)->with('items')->first();
+        return view('employee.laundry_form', compact('entity'));
     }
 
     public function proxyAwork(Request $request)
@@ -518,5 +519,38 @@ class EntityController extends Controller
             \DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    // --- MOCK VENDOR UI METHODS ---
+    public function vendorDashboard()
+    {
+        return view('vendor.dashboard');
+    }
+
+    public function vendorAction($code)
+    {
+        $entity = Entity::with('items')->where('code', $code)->firstOrFail();
+        return view('vendor.action', compact('entity'));
+    }
+
+    // --- MOCK EMPLOYEE UI METHODS ---
+    public function employeeDashboard()
+    {
+        $user = auth('web')->user();
+        $entity = \App\Models\Entity::with('items')->where('npk', $user->npk)->first();
+        
+        $sets = [];
+        if ($entity && $entity->items) {
+            foreach ($entity->items as $item) {
+                // If the pivot table doesn't have set_no, default to 1
+                $setNo = $item->pivot->set_no ?? 1;
+                if (!isset($sets[$setNo])) {
+                    $sets[$setNo] = [];
+                }
+                $sets[$setNo][] = $item;
+            }
+        }
+
+        return view('employee.dashboard', compact('user', 'entity', 'sets'));
     }
 }

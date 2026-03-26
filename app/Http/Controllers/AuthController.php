@@ -25,6 +25,7 @@ class AuthController extends Controller
 
             $encryptedUsername = $request->input('encrypted_username');
             $encryptedPassword = $request->input('encrypted_password');
+            $role = $request->input('role', 'admin'); // Default admin
         
             $privateKeyPath = storage_path('app/keys/private.pem');
             $privateKeyString = file_get_contents($privateKeyPath);
@@ -44,16 +45,46 @@ class AuthController extends Controller
                 return back()->withErrors(['Gagal dekripsi.']);
             }
         
-            $user = Admin::where('username', $decryptedUsername)->first();
-            if (!$user || !Hash::check($decryptedPassword, $user->password_hash)) {
-                DB::rollBack();
-                return back()->withErrors(['Username atau password salah.']);
-            }
-        
-            Auth::guard('admin')->login($user);
+            if ($role === 'employee') {
+                // Karyawan Login Logic
+                $user = \App\Models\User::where('npk', $decryptedUsername)->first();
+                
+                if (!$user) {
+                    DB::rollBack();
+                    return back()->withErrors(['NPK tidak ditemukan.'])->withInput();
+                }
+
+                // Cek apakah password plain text ATAU hashed bcrypt
+                $isPasswordValid = false;
+                if ($user->password === $decryptedPassword) {
+                    $isPasswordValid = true; // Plain text match
+                } elseif (\Hash::check($decryptedPassword, $user->password)) {
+                    $isPasswordValid = true; // Hashed match
+                }
+
+                if (!$isPasswordValid) {
+                    DB::rollBack();
+                    return back()->withErrors(['Password salah.'])->withInput();
+                }
             
-            DB::commit();
-            return redirect()->route('admin.entities.index');
+                Auth::guard('web')->login($user);
+                DB::commit();
+
+                // Redirect ke URL yang dituju (intended) sebelum dipaksa login, atau fallback ke dashboard
+                return redirect()->intended(route('employee.dashboard'));
+            } else {
+                // Admin Login Logic
+                $user = Admin::where('username', $decryptedUsername)->first();
+                if (!$user || !Hash::check($decryptedPassword, $user->password_hash)) {
+                    DB::rollBack();
+                    return back()->withErrors(['Username atau password salah.']);
+                }
+            
+                Auth::guard('admin')->login($user);
+                DB::commit();
+                
+                return redirect()->route('admin.entities.index');
+            }
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -62,14 +93,15 @@ class AuthController extends Controller
         }
     }
     
-        
-
-
     public function logout(Request $request)
     {
         Log::info('Logout initiated', [
-            'admin_id' => session('admin')
+            'admin_id' => session('admin'),
+            'user_id' => Auth::id()
         ]);
+
+        Auth::guard('admin')->logout();
+        Auth::guard('web')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken(); // for CSRF protection

@@ -27,36 +27,36 @@
 
         .card-main {
             border: 1px solid #e2e8f0;
-            border-radius: 16px;
+            border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
             background: #fff;
             overflow: hidden;
-            padding: 24px;
+            padding: 16px;
         }
 
         .header-box { 
             background-color: #eff6ff; 
             color: var(--primary-ems);
             display: inline-block; 
-            padding: 4px 12px; 
+            padding: 4px 10px; 
             font-weight: 700; 
             border-radius: 6px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             letter-spacing: 0.5px;
         }
 
         .form-label {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 600;
             color: #475569;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.3rem;
         }
 
         .form-control, .form-select {
-            font-size: 0.9rem;
-            border-radius: 8px;
+            font-size: 0.85rem;
+            border-radius: 6px;
             border: 1px solid #cbd5e1;
-            padding: 10px 14px;
+            padding: 8px 12px;
             color: #1e293b;
             box-shadow: none;
         }
@@ -75,14 +75,14 @@
             background-color: var(--primary-ems); 
             color: white; 
             border: none; 
-            padding: 10px 16px; 
+            padding: 8px 12px; 
             width: 100%; 
             font-weight: 600; 
             border-radius: 8px; 
             transition: all 0.2s ease; 
             box-shadow: 0 2px 4px -1px rgba(37, 99, 235, 0.2);
-            font-size: 0.9rem;
-            margin-top: 10px;
+            font-size: 0.85rem;
+            margin-top: 8px;
         }
 
         .btn-submit:hover { 
@@ -94,14 +94,14 @@
         
         .btn-back {
             color: #64748b;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             font-weight: 500;
             transition: color 0.2s;
             background: #f8fafc;
-            padding: 6px 12px;
+            padding: 4px 10px;
             border-radius: 6px;
             border: 1px solid #e2e8f0;
         }
@@ -130,8 +130,8 @@
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
             
-            <div class="d-flex justify-content-between align-items-center mb-4 px-1">
-                <a href="{{ route('public.preview', $entity->code) }}" class="btn-back">
+            <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+                <a href="{{ route('employee.dashboard') }}" class="btn-back">
                     <i class="bi bi-arrow-left me-1"></i> Kembali
                 </a>
                 <div class="header-box">
@@ -139,25 +139,25 @@
                 </div>
             </div>
 
-            <div class="card-main mb-4">
-                <div class="text-center mb-4 pb-3 border-bottom" style="border-color: #f1f5f9 !important;">
-                    <div class="d-inline-flex justify-content-center align-items-center bg-primary bg-opacity-10 text-primary rounded-circle mb-3" style="width: 56px; height: 56px;">
-                        <i class="bi bi-clipboard2-check fs-3"></i>
+            <div class="card-main mb-3">
+                <div class="text-center mb-3 pb-2 border-bottom" style="border-color: #f1f5f9 !important;">
+                    <div class="d-inline-flex justify-content-center align-items-center bg-primary bg-opacity-10 text-primary rounded-circle mb-2" style="width: 48px; height: 48px;">
+                        <i class="bi bi-clipboard2-check fs-4"></i>
                     </div>
-                    <h5 class="fw-bold text-dark mb-1">LAUNDRY SERAGAM ESD</h5>
-                    <p class="text-muted mb-0" style="font-size: 0.8rem;">Silakan isi detail transaksi seragam Anda.</p>
+                    <h6 class="fw-bold text-dark mb-1">LAUNDRY SERAGAM ESD</h6>
+                    <p class="text-muted mb-0" style="font-size: 0.75rem;">Silakan isi detail transaksi seragam Anda.</p>
                 </div>
 
                 <!-- Form UI Dummy -->
                 <form action="#" method="POST" id="formTransaksi">
                     @csrf
                     
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label">Code ESD</label>
                         <input type="text" class="form-control" name="code_esd" value="{{ $entity->code }}" readonly>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label">Jenis Transaksi</label>
                         <select class="form-select" name="jenis_transaksi" required>
                             <option value="" selected disabled>Pilih jenis transaksi...</option>
@@ -168,8 +168,8 @@
                         </select>
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label mb-3">Pilih Item yang Ditransaksikan</label>
+                    <div class="mb-3">
+                        <label class="form-label mb-2">Pilih Item yang Ditransaksikan</label>
                         @php
                             $groupedSets = [];
                             $uniqueItems = [];
@@ -189,13 +189,13 @@
                             ksort($groupedSets);
                         @endphp
 
-                        <div class="table-responsive border rounded-3 p-2 bg-white shadow-sm">
+                        <div class="table-responsive border rounded-3 p-1 bg-white shadow-sm">
                             <table class="table table-borderless align-middle text-center mb-0">
                                 <thead style="border-bottom: 2px solid #f1f5f9;">
                                     <tr>
-                                        <th class="text-start text-muted pb-3" style="font-weight: 600; font-size: 0.8rem; width: 35%;">SET EST</th>
+                                        <th class="text-start text-muted pb-2 pt-1" style="font-weight: 600; font-size: 0.7rem; width: 35%;">SET ESD</th>
                                         @foreach($uniqueItems as $itemName)
-                                            <th class="text-muted pb-3" style="font-weight: 600; font-size: 0.8rem;">{{ strtoupper($itemName) }}</th>
+                                            <th class="text-muted pb-2 pt-1" style="font-weight: 600; font-size: 0.7rem;">{{ strtoupper($itemName) }}</th>
                                         @endforeach
                                     </tr>
                                 </thead>
@@ -203,12 +203,12 @@
                                     @if(count($groupedSets) > 0)
                                         @foreach($groupedSets as $setNo => $itemsInSet)
                                             <tr style="border-bottom: 1px solid #f8fafc;">
-                                                <td class="text-start py-3">
-                                                    <div class="fw-bold text-dark" style="font-size: 0.9rem;">Set ke-{{ $setNo }}</div>
-                                                    <div class="text-muted" style="font-size: 0.75rem;">Paket {{ $entity->package }}</div>
+                                                <td class="text-start py-2">
+                                                    <div class="fw-bold text-dark" style="font-size: 0.8rem;">Set {{ $setNo }}</div>
+                                                    <div class="text-muted" style="font-size: 0.7rem;">Paket {{ $entity->package }}</div>
                                                 </td>
                                                 @foreach($uniqueItems as $itemName)
-                                                    <td class="py-3">
+                                                    <td class="py-2">
                                                         @if(isset($itemsInSet[$itemName]))
                                                             @php $item = $itemsInSet[$itemName]; @endphp
                                                             <div class="form-check d-flex justify-content-center m-0">
@@ -218,10 +218,10 @@
                                                                     value="{{ $item->id }}" 
                                                                     data-label="{{ $item->item_name }} (Set {{ $setNo }})" 
                                                                     id="item-{{ $setNo }}-{{ $item->id }}"
-                                                                    style="width: 22px; height: 22px; cursor: pointer; border-color: #cbd5e1;">
+                                                                    style="width: 18px; height: 18px; cursor: pointer; border-color: #cbd5e1;">
                                                             </div>
                                                         @else
-                                                            <span class="text-muted opacity-50">-</span>
+                                                            <span class="text-muted opacity-50" style="font-size:0.8rem">-</span>
                                                         @endif
                                                     </td>
                                                 @endforeach
@@ -265,28 +265,28 @@
 
 <!-- Modal Konfirmasi / Struk -->
 <div class="modal fade" id="strukModal" tabindex="-1" aria-labelledby="strukModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow" style="border-radius: 16px;">
-      <div class="modal-header border-bottom-0 bg-light" style="border-radius: 16px 16px 0 0;">
-        <h5 class="modal-title fw-bold" id="strukModalLabel">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content border-0 shadow" style="border-radius: 12px;">
+      <div class="modal-header border-bottom-0 bg-light py-2 px-3" style="border-radius: 12px 12px 0 0;">
+        <h6 class="modal-title fw-bold mb-0" id="strukModalLabel" style="font-size: 0.9rem;">
             <i class="bi bi-receipt me-2 text-primary"></i>Struk Transaksi
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </h6>
+        <button type="button" class="btn-close" style="font-size: 0.7rem;" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body p-4">
-        <div class="struk-header text-center mb-4 border-bottom pb-3">
-            <h6 class="fw-bold mb-1">ESD MANAGEMENT SYSTEM</h6>
-            <p class="text-muted mb-0" style="font-size: 0.8rem;">Astra Visteon Indonesia</p>
+      <div class="modal-body p-3">
+        <div class="struk-header text-center mb-3 border-bottom pb-2">
+            <h6 class="fw-bold mb-1" style="font-size: 0.85rem;">ESD MANAGEMENT SYSTEM</h6>
+            <p class="text-muted mb-0" style="font-size: 0.75rem;">Astra Visteon Indonesia</p>
         </div>
         
-        <table class="table table-borderless table-sm mb-4" style="font-size: 0.9rem;">
+        <table class="table table-borderless table-sm mb-3" style="font-size: 0.8rem;">
             <tr>
-                <td class="text-muted" width="40%">Code ESD</td>
+                <td class="text-muted" width="45%">Code ESD</td>
                 <td class="fw-semibold text-end" id="struk-code">{{ $entity->code }}</td>
             </tr>
             <tr>
                 <td class="text-muted">Nama Karyawan</td>
-                <td class="fw-semibold text-end text-truncate" style="max-width: 150px;">{{ $entity->employee_name ?? 'Available' }}</td>
+                <td class="fw-semibold text-end text-truncate" style="max-width: 130px;">{{ $entity->employee_name ?? 'Available' }}</td>
             </tr>
             <tr>
                 <td class="text-muted">Departemen</td>
@@ -299,28 +299,28 @@
             <tr>
                 <td class="text-muted">Tanggal</td>
                 <td class="fw-semibold text-end">
-                    {{ now()->setTimezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+                    {{ now()->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') }}
                 </td>
             </tr>
         </table>
 
-        <p class="fw-bold mb-2" style="font-size: 0.85rem; color: #64748b;">DETAIL ITEM:</p>
-        <div class="bg-light p-3 rounded-3 mb-4">
-            <ul class="list-unstyled mb-0" id="struk-items" style="font-size: 0.9rem;">
+        <p class="fw-bold mb-1" style="font-size: 0.75rem; color: #64748b;">DETAIL ITEM:</p>
+        <div class="bg-light p-2 rounded-2 mb-3">
+            <ul class="list-unstyled mb-0" id="struk-items" style="font-size: 0.8rem;">
                 <!-- Items will be injected here via JS -->
             </ul>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center fw-bold px-2 mb-2">
-            <span>TOTAL ITEM:</span>
-            <span id="struk-total" class="fs-5">0</span>
+        <div class="d-flex justify-content-between align-items-center fw-bold px-1 mb-1">
+            <span style="font-size: 0.85rem;">TOTAL ITEM:</span>
+            <span id="struk-total" class="fs-6 text-primary">0</span>
         </div>
       </div>
-      <div class="modal-footer border-top-0 pt-0 px-4 pb-4 flex-column">
-        <button type="button" class="btn btn-primary w-100 mb-2" id="btnSubmitFinal" style="border-radius: 8px;">
-            <i class="bi bi-check-circle me-2"></i> Konfirmasi & Submit
+      <div class="modal-footer border-top-0 pt-0 px-3 pb-3 flex-column">
+        <button type="button" class="btn btn-primary btn-sm w-100 mb-2 fw-bold" id="btnSubmitFinal" style="border-radius: 6px; padding: 8px;">
+            <i class="bi bi-check-circle me-1"></i> Konfirmasi & Submit
         </button>
-        <button type="button" class="btn btn-light w-100 m-0" data-bs-dismiss="modal" style="border-radius: 8px; color: #64748b;">Kembali Edit</button>
+        <button type="button" class="btn btn-light btn-sm w-100 m-0" data-bs-dismiss="modal" style="border-radius: 6px; color: #64748b; font-weight: 500;">Batal / Edit</button>
       </div>
     </div>
   </div>

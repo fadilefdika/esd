@@ -22,7 +22,7 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::get('/preview/{code}', [EntityController::class, 'preview'])->name('public.preview'); //preview page
-Route::get('/preview/{code}/laundry', [EntityController::class, 'laundryForm'])->name('public.laundry.form'); // form laundry ui
+Route::get('/preview/{code}/laundry', [EntityController::class, 'laundryForm'])->name('public.laundry.form')->middleware('auth:web,admin'); // form laundry ui
 Route::get('admin/proxy-awork', [EntityController::class, 'proxyAwork'])->name('admin.proxy.awork');//ambil api awork (set up dulu di env url & token)
 
 // Dashboard (dilindungi oleh middleware 'auth')
@@ -52,5 +52,15 @@ Route::middleware(AdminAuth::class)->prefix('admin')->name('admin.')->group(func
 
     Route::get('/generate-spare', [EntityController::class, 'generateManualSpare']); 
 
+});
 
+// Mock group for Vendor Mobile Interface
+Route::prefix('vendor')->name('vendor.')->group(function () {
+    Route::get('/dashboard', [EntityController::class, 'vendorDashboard'])->name('dashboard');
+    Route::get('/scan/{code}', [EntityController::class, 'vendorAction'])->name('action');
+});
+
+// Group for Employee/Karyawan Interface
+Route::middleware('auth:web')->prefix('employee')->name('employee.')->group(function () {
+    Route::get('/dashboard', [EntityController::class, 'employeeDashboard'])->name('dashboard');
 });

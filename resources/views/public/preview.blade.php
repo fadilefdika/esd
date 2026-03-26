@@ -128,6 +128,27 @@
             font-size: 1.4rem;
             margin: 0 auto 10px;
         }
+
+        .timeline-wrapper {
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 8px;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+
+        .timeline-wrapper::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .timeline-wrapper::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .timeline-wrapper::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 10px;
+        }
     </style>
 </head>
 <body>
@@ -218,9 +239,82 @@
                 </table>
             </div>
 
-            <a href="{{ route('public.laundry.form', $entity->code) }}" class="btn btn-submit">
-                <i class="bi bi-file-earmark-text me-2"></i> Form Transaksi ESD
-            </a>
+            <!-- Timeline Log -->
+            <div class="card-main p-3 mt-4 mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark mb-0" style="font-size: 0.85rem;"><i class="bi bi-clock-history me-2 text-primary"></i>Riwayat Transaksi</h6>
+                    <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">5 Log</span>
+                </div>
+                
+                <div class="timeline-wrapper">
+                    <div class="timeline-container ps-3" style="border-left: 2px solid #e2e8f0; margin-left: 8px;">
+                        
+                        <!-- Item 1 -->
+                        <div class="position-relative mb-4">
+                            <span class="position-absolute top-0 start-0 translate-middle p-1 bg-success border border-light rounded-circle" style="left: -1px !important; margin-top: 6px;"></span>
+                            <div class="ms-3">
+                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #1e293b;">Selesai Dicuci (Ready Pick-up)</h6>
+                                <p class="text-muted mb-0" style="font-size: 0.7rem;">23 Mar 2026, 14:00 - Vendor A</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Item 2 -->
+                        <div class="position-relative mb-4">
+                            <span class="position-absolute top-0 start-0 translate-middle p-1" style="left: -1px !important; margin-top: 6px; background-color: #cbd5e1; border: 2px solid white; border-radius: 50%;"></span>
+                            <div class="ms-3">
+                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #64748b;">Sedang Diproses (Dicuci)</h6>
+                                <p class="text-muted mb-0" style="font-size: 0.7rem;">22 Mar 2026, 09:15 - Vendor A</p>
+                            </div>
+                        </div>
+
+                        <!-- Item 3 -->
+                        <div class="position-relative mb-4">
+                            <span class="position-absolute top-0 start-0 translate-middle p-1" style="left: -1px !important; margin-top: 6px; background-color: #cbd5e1; border: 2px solid white; border-radius: 50%;"></span>
+                            <div class="ms-3">
+                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #64748b;">Diserahkan ke Laundry</h6>
+                                <p class="text-muted mb-0" style="font-size: 0.7rem;">21 Mar 2026, 08:30 - Oleh Karyawan</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Item 4 -->
+                        <div class="position-relative mb-4">
+                            <span class="position-absolute top-0 start-0 translate-middle p-1" style="left: -1px !important; margin-top: 6px; background-color: #cbd5e1; border: 2px solid white; border-radius: 50%;"></span>
+                            <div class="ms-3">
+                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #64748b;">Pengembalian Pasca-Laundry</h6>
+                                <p class="text-muted mb-0" style="font-size: 0.7rem;">15 Feb 2026, 16:00 - Oleh Karyawan</p>
+                            </div>
+                        </div>
+
+                        <!-- Item 5 -->
+                        <div class="position-relative">
+                            <span class="position-absolute top-0 start-0 translate-middle p-1" style="left: -1px !important; margin-top: 6px; background-color: #cbd5e1; border: 2px solid white; border-radius: 50%;"></span>
+                            <div class="ms-3">
+                                <h6 class="mb-0 fw-bold" style="font-size: 0.8rem; color: #64748b;">Distribusi Awal</h6>
+                                <p class="text-muted mb-0" style="font-size: 0.7rem;">10 Jan 2026, 10:00 - Admin</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Authenticaton / Check Auth  -->
+            <div class="mt-4 border-top pt-3 text-center">
+                @auth
+                    @if(auth()->user()->role === 'admin' || auth()->user()->role === 'employee' || Auth::guard('web')->check() || Auth::guard('admin')->check())
+                        <a href="{{ route('public.laundry.form', $entity->code) }}" class="btn btn-submit">
+                            <i class="bi bi-file-earmark-text me-2"></i> Form Transaksi ESD
+                        </a>
+                    @else
+                        <p class="text-muted" style="font-size: 0.8rem;">Role Anda tidak memiliki akses transaksi.</p>
+                    @endif
+                @else
+                    <p class="text-muted mb-2" style="font-size: 0.75rem;">Harap login untuk memproses transaksi laundry baju Anda.</p>
+                    <a href="{{ route('public.laundry.form', $entity->code) }}" class="btn btn-outline-primary w-100" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;">
+                        <i class="bi bi-box-arrow-in-right me-2"></i> Lanjut Login & Form Transaksi
+                    </a>
+                @endauth
+            </div>
 
             <div class="text-center mt-5">
                 <p class="text-muted mb-0" style="font-size: 0.75rem;">Astra Visteon Indonesia &copy; {{ date('Y') }}</p>
