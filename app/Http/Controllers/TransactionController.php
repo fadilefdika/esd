@@ -16,46 +16,6 @@ class TransactionController extends Controller
         return response()->json($transactions);
     }
 
-    // public function store(Request $request)
-    // {
-    //     $request->validate([
-    //         'id' => 'required|integer|unique:TRANSACTION,id',
-    //         'entity_id' => 'required|exists:ENTITY,id',
-    //         'transaction_code' => 'required|string|max:100',
-    //         'transaction_start_date' => 'required|date',
-    //         'items' => 'required|array', 
-    //     ]);
-
-    //     try {
-    //         DB::beginTransaction();
-
-    //         $currentUserId = Auth::id() ?? $request->creator_id;
-
-    //         $transaction = Transaction::create([
-    //             'id' => $request->id,
-    //             'entity_id' => $request->entity_id,
-    //             'transaction_code' => $request->transaction_code,
-    //             'transaction_start_date' => $request->transaction_start_date,
-    //             'transaction_end_date' => $request->transaction_end_date,
-    //             'transaction_type' => $request->transaction_type,
-    //             'transaction_status' => $request->transaction_status ?? 'OPEN',
-    //             'transaction_image_start' => $request->transaction_image_start,
-    //             'transaction_image_finish' => $request->transaction_image_finish,
-    //             'creator_id' => $currentUserId,
-    //         ]);
-
-    //         if ($request->has('items')) {
-    //             $transaction->items()->attach($request->items);
-    //         }
-
-    //         DB::commit();
-    //         return response()->json(['message' => 'Transaksi berhasil dibuat', 'data' => $transaction], 201);
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         return response()->json(['message' => 'Gagal simpan transaksi: ' . $e->getMessage()], 500);
-    //     }
-    // }
-
     
     public function store(Request $request)
     {
@@ -71,10 +31,13 @@ class TransactionController extends Controller
             $jenis = $request->jenis_transaksi;
             $entityId = $request->entity_id;
             
-            // Buat Kode Transaksi Unik
+            // Buat Kode Transaksi Unik (race-safe)
             $dateCode = now()->format('Ymd');
             $prefix = ($jenis === 'Serah ke laundry') ? 'SRH' : (($jenis === 'Ambil dari laundry') ? 'AMB' : 'OTH');
-            $count = Transaction::whereDate('transaction_start_date', now())->count() + 1;
+            $maxCode = Transaction::where('transaction_code', 'LIKE', "TRX-{$prefix}-{$dateCode}-%")
+                ->lockForUpdate()
+                ->max('transaction_code');
+            $count = $maxCode ? ((int) substr($maxCode, -3)) + 1 : 1;
             $transactionCode = "TRX-{$prefix}-{$dateCode}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
 
             // LOGIKA BARU: Apapun jenisnya, selalu buat record BARU
@@ -85,6 +48,7 @@ class TransactionController extends Controller
                 'transaction_start_date' => now(),
                 // Jika Ambil/Ganti/Hilang langsung FINISHED, jika Serah statusnya OPEN
                 'transaction_status'     => ($jenis === 'Serah ke laundry') ? 'OPEN' : 'FINISHED',
+                'transaction_end_date'   => ($jenis !== 'Serah ke laundry') ? now() : null,
                 'creator_id'             => Auth::id() ?? 1,
             ]);
 

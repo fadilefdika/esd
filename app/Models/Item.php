@@ -1,7 +1,7 @@
 <?php
 namespace App\Models;
 
-use Dom\Entity;
+use App\Models\Entity;
 use Illuminate\Database\Eloquent\Model;
 
 class Item extends Model

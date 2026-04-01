@@ -1,7 +1,9 @@
 <?php
 namespace App\Models;
 
-use Dom\Entity;
+
+use App\Models\Entity;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
@@ -22,6 +24,11 @@ class Transaction extends Model
     public function entity()
     {
         return $this->belongsTo(Entity::class, 'entity_id', 'id');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'creator_id');
     }
 
     public function items()

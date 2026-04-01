@@ -94,6 +94,16 @@
             outline: none;
         }
 
+        /* Hide number input spinners */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
         /* Role Selector Styles */
         .role-selector .btn-outline-primary {
             border-color: #e2e8f0;
@@ -233,7 +243,7 @@
                     </div>
 
                     <div class="input-group-custom">
-                        <label for="username" class="form-label">Username / NPK</label>
+                        <label for="username" id="username-label" class="form-label">Username</label>
                         <input type="text" id="username" class="form-control" required placeholder="Masukkan Username Admin">
                     </div>
 
@@ -292,18 +302,23 @@
         document.querySelectorAll('input[name="role"]').forEach(radio => {
             radio.addEventListener('change', function() {
                 const usernameInput = document.getElementById('username');
+                const usernameLabel = document.getElementById('username-label');
                 if(this.value === 'admin') {
+                    usernameLabel.textContent = 'Username';
                     usernameInput.placeholder = 'Masukkan Username Admin';
                     usernameInput.type = 'text';
                 }
                 if(this.value === 'employee') {
-                    usernameInput.placeholder = 'Masukkan NPK Karyawan (Angka)';
+                    usernameLabel.textContent = 'NPK';
+                    usernameInput.placeholder = 'Masukkan NPK Karyawan';
                     usernameInput.type = 'number';
                 }
                 if(this.value === 'vendor') {
+                    usernameLabel.textContent = 'Username';
                     usernameInput.placeholder = 'Masukkan Kode Vendor / Username';
                     usernameInput.type = 'text';
                 }
+                usernameInput.value = '';
             });
         });
 

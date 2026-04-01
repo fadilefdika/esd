@@ -149,7 +149,7 @@
                 </div>
 
                 <!-- Form UI Dummy -->
-                <form action="{{ route('admin.transactions.store') }}" method="POST" id="formTransaksi">
+                <form action="{{ route('transactions.store') }}" method="POST" id="formTransaksi">
                     @csrf
                     
                     <input type="hidden" name="entity_id" value="{{ $entity->id }}">
@@ -415,7 +415,7 @@
             const form = document.getElementById('formTransaksi');
             const formData = new FormData(form);
 
-            fetch("{{ route('admin.transactions.store') }}", {
+            fetch("{{ route('transactions.store') }}", {
                 method: "POST",
                 body: formData,
                 headers: {
