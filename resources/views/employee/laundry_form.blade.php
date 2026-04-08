@@ -6,6 +6,7 @@
     <title>Form Transaksi ESD - {{ $entity->code }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <!-- Using Google Fonts (Inter) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -148,7 +149,7 @@
                     <p class="text-muted mb-0" style="font-size: 0.75rem;">Silakan isi detail transaksi seragam Anda.</p>
                 </div>
 
-                <!-- Form UI Dummy -->
+                <!-- Form Transaksi -->
                 <form action="{{ route('transactions.store') }}" method="POST" id="formTransaksi">
                     @csrf
                     
@@ -161,12 +162,15 @@
                     <div class="mb-2">
                         <label class="form-label">Jenis Transaksi</label>
                         <select class="form-select" name="jenis_transaksi" required>
-                            <option value="" selected disabled>Pilih jenis transaksi...</option>
-                            <option value="Serah ke laundry">Serah ke laundry</option>
-                            <option value="Ambil dari laundry">Ambil dari laundry</option>
+                            <option value="Serah ke laundry" selected>Serah ke laundry</option>
                             <option value="Ganti rusak">Ganti rusak</option>
                             <option value="Kehilangan">Kehilangan</option>
                         </select>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label">Tanggal & Waktu Transaksi</label>
+                        <input type="datetime-local" class="form-control" name="transaction_date" value="{{ now()->format('Y-m-d\TH:i') }}" required>
                     </div>
 
                     <div class="mb-3">
@@ -393,8 +397,14 @@
                 checkedItems.push(cb.dataset.label);
             });
             
-            if(!jenis) { alert('Harap pilih Jenis Transaksi!'); return; }
-            if(checkedItems.length === 0) { alert('Pilih minimal 1 item!'); return; }
+            if(!jenis) {
+                Swal.fire({ icon: 'warning', title: 'Perhatian', text: 'Harap pilih Jenis Transaksi!', confirmButtonColor: '#2563eb' });
+                return;
+            }
+            if(checkedItems.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'Perhatian', text: 'Pilih minimal 1 item yang ingin ditransaksikan!', confirmButtonColor: '#2563eb' });
+                return;
+            }
 
             document.getElementById('struk-jenis').innerText = jenis;
             const ul = document.getElementById('struk-items');
@@ -424,19 +434,29 @@
             })
             .then(response => response.json())
             .then(data => {
+                strukModal.hide();
                 if(data.status === 'success') {
-                    alert(data.message);
-                    location.reload(); // Refresh untuk melihat perubahan status
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: data.message,
+                        confirmButtonColor: '#2563eb',
+                        allowOutsideClick: false
+                    }).then(() => {
+                        window.location.href = "{{ route('employee.dashboard') }}";
+                    });
                 } else {
-                    alert(data.message || 'Terjadi kesalahan');
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: data.message || 'Terjadi kesalahan', confirmButtonColor: '#2563eb' });
                     btn.disabled = false;
                     btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Konfirmasi & Submit';
                 }
             })
             .catch(error => {
                 console.error(error);
-                alert('Gagal menghubungi server');
+                strukModal.hide();
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Gagal menghubungi server', confirmButtonColor: '#2563eb' });
                 btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Konfirmasi & Submit';
             });
         });
     });

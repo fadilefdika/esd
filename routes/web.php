@@ -55,13 +55,15 @@ Route::middleware(AdminAuth::class)->prefix('admin')->name('admin.')->group(func
 
 });
 
-// Mock group for Vendor Mobile Interface
+// Vendor Laundry Interface
 Route::prefix('vendor')->name('vendor.')->group(function () {
     Route::get('/dashboard', [EntityController::class, 'vendorDashboard'])->name('dashboard');
     Route::get('/scan/{code}', [EntityController::class, 'vendorAction'])->name('action');
+    Route::patch('/transactions/{id}/update-status', [EntityController::class, 'vendorUpdateStatus'])->name('update-status');
 });
 
 // Group for Employee/Karyawan Interface
 Route::middleware('auth:web')->prefix('employee')->name('employee.')->group(function () {
     Route::get('/dashboard', [EntityController::class, 'employeeDashboard'])->name('dashboard');
+    Route::post('/confirm-pickup/{id}', [EntityController::class, 'employeeConfirmPickup'])->name('confirm-pickup');
 });

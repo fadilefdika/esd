@@ -41,12 +41,14 @@ class TransactionController extends Controller
             $transactionCode = "TRX-{$prefix}-{$dateCode}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
 
             // LOGIKA BARU: Apapun jenisnya, selalu buat record BARU
+            $startDate = $request->transaction_date ? \Carbon\Carbon::parse($request->transaction_date) : now();
+            
             $transaction = Transaction::create([
                 'entity_id'              => $entityId,
                 'transaction_code'       => $transactionCode,
                 'transaction_type'       => $jenis,
-                'transaction_start_date' => now(),
-                // Jika Ambil/Ganti/Hilang langsung FINISHED, jika Serah statusnya OPEN
+                'transaction_start_date' => $startDate,
+                // Jika Ganti/Hilang langsung FINISHED, jika Serah statusnya OPEN
                 'transaction_status'     => ($jenis === 'Serah ke laundry') ? 'OPEN' : 'FINISHED',
                 'transaction_end_date'   => ($jenis !== 'Serah ke laundry') ? now() : null,
                 'creator_id'             => Auth::id() ?? 1,
@@ -67,6 +69,21 @@ class TransactionController extends Controller
 
             // Attach items ke record baru ini
             $transaction->items()->attach($request->items);
+
+            // Sinkronisasi status item di ENTITY_DETAIL_ITEM
+            if ($jenis === 'Serah ke laundry') {
+                // Update status item yang di-laundry menjadi LAUNDRY
+                DB::table('ENTITY_DETAIL_ITEM')
+                    ->where('entity_id', $entityId)
+                    ->whereIn('item_id', $request->items)
+                    ->update(['status' => 'LAUNDRY', 'updated_at' => now()]);
+            } elseif ($jenis === 'Ambil dari laundry') {
+                // Kembalikan status item menjadi AVAILABLE
+                DB::table('ENTITY_DETAIL_ITEM')
+                    ->where('entity_id', $entityId)
+                    ->whereIn('item_id', $request->items)
+                    ->update(['status' => 'AVAILABLE', 'updated_at' => now()]);
+            }
 
             DB::commit();
             return response()->json(['status' => 'success', 'message' => $message]);

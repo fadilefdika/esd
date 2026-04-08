@@ -49,6 +49,21 @@ class EntityController extends Controller
     public function laundryForm($code)
     {
         $entity = Entity::where('code', $code)->with('items')->first();
+
+        if (!$entity) {
+            return redirect()->route('employee.dashboard')->with('error', 'Data ESD tidak ditemukan.');
+        }
+
+        // Cek apakah entity sedang di laundry (ada transaksi OPEN)
+        $isInLaundry = Transaction::where('entity_id', $entity->id)
+            ->where('transaction_type', 'Serah ke laundry')
+            ->where('transaction_status', 'OPEN')
+            ->exists();
+
+        if ($isInLaundry) {
+            return redirect()->route('employee.dashboard')->with('error', 'Seragam Anda sedang dalam proses laundry. Tidak bisa mengajukan laundry baru.');
+        }
+
         return view('employee.laundry_form', compact('entity'));
     }
 
@@ -533,28 +548,124 @@ class EntityController extends Controller
         }
     }
 
-    // --- MOCK VENDOR UI METHODS ---
+    // --- VENDOR LAUNDRY METHODS ---
     public function vendorDashboard()
     {
-        return view('vendor.dashboard');
+        // Query semua transaksi "Serah ke laundry" (baik OPEN maupun FINISHED terbaru)
+        $transactions = Transaction::with('entity')
+            ->where('transaction_type', 'Serah ke laundry')
+            ->latest()
+            ->get();
+
+        $openCount = $transactions->where('transaction_status', 'OPEN')->count();
+        $finishedCount = $transactions->where('transaction_status', 'FINISHED')->count();
+
+        return view('vendor.dashboard', compact('transactions', 'openCount', 'finishedCount'));
     }
 
     public function vendorAction($code)
     {
         $entity = Entity::with('items')->where('code', $code)->firstOrFail();
-        return view('vendor.action', compact('entity'));
+        
+        // Ambil transaksi OPEN (sedang di laundry) untuk entity ini
+        $activeTransaction = Transaction::where('entity_id', $entity->id)
+            ->where('transaction_type', 'Serah ke laundry')
+            ->where('transaction_status', 'OPEN')
+            ->with('items')
+            ->latest()
+            ->first();
+
+        return view('vendor.action', compact('entity', 'activeTransaction'));
     }
 
-    // --- MOCK EMPLOYEE UI METHODS ---
+    public function vendorUpdateStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|in:OPEN,FINISHED',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $transaction = Transaction::with('entity')->findOrFail($id);
+            $newStatus = $request->status;
+
+            $transaction->update([
+                'transaction_status' => $newStatus,
+                'transaction_end_date' => ($newStatus === 'FINISHED') ? now() : null,
+            ]);
+
+            // Sinkronisasi status di ENTITY_DETAIL_ITEM
+            $itemIds = $transaction->items()->pluck('TRANSACTION_DETAIL_ITEM.item_id')->toArray();
+            
+            if (!empty($itemIds)) {
+                $pivotStatus = ($newStatus === 'FINISHED') ? 'AVAILABLE' : 'LAUNDRY';
+                DB::table('ENTITY_DETAIL_ITEM')
+                    ->where('entity_id', $transaction->entity_id)
+                    ->whereIn('item_id', $itemIds)
+                    ->update(['status' => $pivotStatus, 'updated_at' => now()]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success', 
+                'message' => $newStatus === 'FINISHED' 
+                    ? 'Cucian ditandai selesai! Siap diambil.' 
+                    : 'Status dikembalikan ke proses.'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => 'Gagal: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function employeeDashboard()
     {
         $user = auth('web')->user();
         $entity = \App\Models\Entity::with('items')->where('npk', $user->npk)->first();
         
+        $isInLaundry = false;
+        $isReadyForPickup = false;
+        $activeTransaction = null;
+
+        if ($entity) {
+            // Cek transaksi OPEN (masih diproses vendor)
+            $activeTransaction = Transaction::where('entity_id', $entity->id)
+                ->where('transaction_type', 'Serah ke laundry')
+                ->where('transaction_status', 'OPEN')
+                ->latest()
+                ->first();
+
+            if ($activeTransaction) {
+                $isInLaundry = true;
+            } else {
+                // Cek apakah ada transaksi FINISHED yang belum di-pickup (belum ada "Ambil dari laundry" setelahnya)
+                $lastSerah = Transaction::where('entity_id', $entity->id)
+                    ->where('transaction_type', 'Serah ke laundry')
+                    ->where('transaction_status', 'FINISHED')
+                    ->latest()
+                    ->first();
+
+                if ($lastSerah) {
+                    // Cek apakah sudah ada "Ambil dari laundry" setelah serah ini
+                    $sudahDiambil = Transaction::where('entity_id', $entity->id)
+                        ->where('transaction_type', 'Ambil dari laundry')
+                        ->where('created_at', '>=', $lastSerah->created_at)
+                        ->exists();
+
+                    if (!$sudahDiambil) {
+                        $isReadyForPickup = true;
+                        $activeTransaction = $lastSerah;
+                    }
+                }
+            }
+        }
+
         $sets = [];
         if ($entity && $entity->items) {
             foreach ($entity->items as $item) {
-                // If the pivot table doesn't have set_no, default to 1
                 $setNo = $item->pivot->set_no ?? 1;
                 if (!isset($sets[$setNo])) {
                     $sets[$setNo] = [];
@@ -563,6 +674,58 @@ class EntityController extends Controller
             }
         }
 
-        return view('employee.dashboard', compact('user', 'entity', 'sets'));
+        return view('employee.dashboard', compact('user', 'entity', 'sets', 'isInLaundry', 'isReadyForPickup', 'activeTransaction'));
+    }
+
+    /**
+     * Employee konfirmasi bahwa barang laundry sudah diambil.
+     * Otomatis membuat transaksi "Ambil dari laundry" dan reset status item.
+     */
+    public function employeeConfirmPickup($transactionId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $serahTransaction = Transaction::with('items')->findOrFail($transactionId);
+            $entityId = $serahTransaction->entity_id;
+
+            // Buat kode transaksi untuk pengambilan
+            $dateCode = now()->format('Ymd');
+            $maxCode = Transaction::where('transaction_code', 'LIKE', "TRX-AMB-{$dateCode}-%")
+                ->lockForUpdate()
+                ->max('transaction_code');
+            $count = $maxCode ? ((int) substr($maxCode, -3)) + 1 : 1;
+            $transactionCode = "TRX-AMB-{$dateCode}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
+
+            // Buat record transaksi "Ambil dari laundry"
+            $pickupTransaction = Transaction::create([
+                'entity_id'              => $entityId,
+                'transaction_code'       => $transactionCode,
+                'transaction_type'       => 'Ambil dari laundry',
+                'transaction_start_date' => now(),
+                'transaction_end_date'   => now(),
+                'transaction_status'     => 'FINISHED',
+                'creator_id'             => Auth::id(),
+            ]);
+
+            // Attach items yang sama dari transaksi serah
+            $itemIds = $serahTransaction->items->pluck('id')->toArray();
+            $pickupTransaction->items()->attach($itemIds);
+
+            // Reset status item di ENTITY_DETAIL_ITEM
+            DB::table('ENTITY_DETAIL_ITEM')
+                ->where('entity_id', $entityId)
+                ->whereIn('item_id', $itemIds)
+                ->update(['status' => 'AVAILABLE', 'updated_at' => now()]);
+
+            DB::commit();
+
+            return redirect()->route('employee.dashboard')->with('success', 'Pengambilan berhasil dikonfirmasi! Seragam Anda sudah kembali.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('employee.dashboard')->with('error', 'Gagal konfirmasi: ' . $e->getMessage());
+        }
     }
 }
+

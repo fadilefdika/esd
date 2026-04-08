@@ -6,9 +6,41 @@
     <title>Employee Dashboard - EMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         .header-app { background: #2563eb; color: white; padding: 24px 20px; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
+        
+        .pickup-banner {
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            border: 1px solid #6ee7b7;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .pickup-banner .btn-pickup {
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            width: 100%;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(5, 150, 105, 0.3);
+        }
+        .pickup-banner .btn-pickup:hover {
+            background: #047857;
+            transform: translateY(-1px);
+        }
+        
+        .laundry-banner {
+            background: #fef3c7;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            border: 1px solid #fcd34d;
+        }
     </style>
 </head>
 <body>
@@ -30,28 +62,74 @@
 </div>
 
 <div class="container px-3">
+
+
+
     @if($entity)
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="fw-bold text-dark mb-0">Paket Saya: {{ $entity->package ?? 'Standar' }}</h6>
             <span class="badge bg-primary px-2 py-1">{{ $entity->code }}</span>
         </div>
 
+        {{-- Banner: Siap Diambil (Vendor sudah tandai selesai) --}}
+        @if($isReadyForPickup && $activeTransaction)
+            <div class="pickup-banner mb-3">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="bi bi-bag-check-fill text-success me-2 fs-4"></i>
+                    <div>
+                        <div class="fw-bold text-dark" style="font-size: 0.9rem;">Cucian Anda Sudah Selesai!</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">
+                            {{ $activeTransaction->transaction_code }} &bull; 
+                            Selesai: {{ $activeTransaction->transaction_end_date ? $activeTransaction->transaction_end_date->format('d M Y, H:i') : '-' }}
+                        </div>
+                    </div>
+                </div>
+                <form action="{{ route('employee.confirm-pickup', $activeTransaction->id) }}" method="POST" id="formPickup">
+                    @csrf
+                    <button type="submit" class="btn-pickup">
+                        <i class="bi bi-hand-index-thumb me-2"></i> Konfirmasi Sudah Diambil
+                    </button>
+                </form>
+            </div>
+        @endif
+
+        {{-- Banner: Sedang di Laundry --}}
+        @if($isInLaundry)
+            <div class="alert laundry-banner border-0 mb-3 d-flex align-items-center px-3 py-3">
+                <span class="spinner-grow spinner-grow-sm text-warning me-2" role="status"></span>
+                <span class="fw-semibold text-dark">Seragam Anda sedang dalam proses laundry.</span>
+            </div>
+        @endif
+
         @forelse($sets as $setNo => $items)
             @php
-                // Cek status sederhana: Jika ada item yang punya status LAUNDRY/DIPROSES, anggap setnya di laundry.
                 $setStatus = 'Tersedia';
                 $badgeClass = 'bg-success';
+                $borderColor = '#10b981';
                 
                 foreach($items as $it) {
                     $status = strtoupper($it->pivot->status ?? '');
                     if(in_array($status, ['LAUNDRY', 'DIPROSES'])) {
                         $setStatus = 'Sedang di Laundry';
                         $badgeClass = 'bg-warning text-dark';
+                        $borderColor = '#f59e0b';
                         break;
                     }
                 }
+
+                // Fallback dari Transaction check
+                if ($setStatus === 'Tersedia' && $isInLaundry) {
+                    $setStatus = 'Sedang di Laundry';
+                    $badgeClass = 'bg-warning text-dark';
+                    $borderColor = '#f59e0b';
+                }
+                if ($setStatus === 'Tersedia' && $isReadyForPickup) {
+                    $setStatus = 'Siap Diambil';
+                    $badgeClass = 'bg-info text-light';
+                    $borderColor = '#06b6d4';
+                }
             @endphp
-            <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px; border-left: 4px solid {{ $setStatus === 'Tersedia' ? '#10b981' : '#f59e0b' }} !important;">
+            <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px; border-left: 4px solid {{ $borderColor }} !important;">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-bold mb-0" style="font-size: 0.95rem;">Set {{ $setNo }}</h6>
@@ -71,9 +149,16 @@
             </div>
         @endforelse
 
-        <a href="{{ route('public.laundry.form', $entity->code) }}" class="btn btn-primary w-100 py-3 mt-2 shadow-sm" style="border-radius: 12px; font-weight: 600;">
-            <i class="bi bi-basket-fill me-2"></i> Ajukan Laundry Baru
-        </a>
+        @if(!$isInLaundry && !$isReadyForPickup)
+            <a href="{{ route('public.laundry.form', $entity->code) }}" class="btn btn-primary w-100 py-3 mt-2 shadow-sm" style="border-radius: 12px; font-weight: 600;">
+                <i class="bi bi-basket-fill me-2"></i> Ajukan Laundry Baru
+            </a>
+        @elseif($isInLaundry)
+            <button class="btn btn-secondary w-100 py-3 mt-2" style="border-radius: 12px; font-weight: 600;" disabled>
+                <i class="bi bi-hourglass-split me-2"></i> Menunggu Proses Laundry...
+            </button>
+        @endif
+
     @else
         <div class="card border-0 shadow-sm" style="border-radius: 16px;">
             <div class="card-body text-center py-5 px-3">
@@ -90,5 +175,49 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Flash messages as SweetAlert
+        @if(session('success'))
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: '{{ session('success') }}',
+                confirmButtonColor: '#2563eb'
+            });
+        @endif
+        @if(session('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops!',
+                text: '{{ session('error') }}',
+                confirmButtonColor: '#2563eb'
+            });
+        @endif
+
+        // Pickup confirmation with SweetAlert
+        const formPickup = document.getElementById('formPickup');
+        if (formPickup) {
+            formPickup.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const form = this;
+                Swal.fire({
+                    title: 'Konfirmasi Pengambilan',
+                    text: 'Apakah Anda sudah mengambil seragam dari laundry?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#059669',
+                    cancelButtonColor: '#94a3b8',
+                    confirmButtonText: 'Ya, Sudah Diambil',
+                    cancelButtonText: 'Belum'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        }
+    });
+</script>
 </body>
 </html>
