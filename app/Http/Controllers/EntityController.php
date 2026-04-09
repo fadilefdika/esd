@@ -29,21 +29,43 @@ class EntityController extends Controller
     }
 
     public function preview($code) {
-        $entity = Entity::where('code', $code)->firstOrFail();
+        $entity = Entity::with('items')->where('code', $code)->firstOrFail();
 
-        $isLaundry = Transaction::where('entity_id', $entity->id)
-        ->where('transaction_type', 'Serah ke laundry')
-        ->where('transaction_status', 'OPEN')
-        ->exists();
+        $groupSets = [];
+        foreach ($entity->items as $item) {
+            $setNo = $item->pivot->set_no;
+            if (!isset($groupSets[$setNo])) {
+                $groupSets[$setNo] = [];
+            }
+            $groupSets[$setNo][] = strtoupper($item->pivot->status ?? '');
+        }
 
-        $status = $isLaundry ? 'IN LAUNDRY' : 'AVAILABLE';
+        $totalSetsOwned = count($groupSets);
+        $setsInLaundry = [];
+        $setsAvailable = [];
 
-        $histories = Transaction::where('entity_id', $entity->id)
+        foreach ($groupSets as $setNo => $statuses) {
+            $inLaundry = false;
+            foreach ($statuses as $stat) {
+                if (in_array($stat, ['LAUNDRY', 'DIPROSES'])) {
+                    $inLaundry = true;
+                    break;
+                }
+            }
+            if ($inLaundry) {
+                $setsInLaundry[] = $setNo;
+            } else {
+                $setsAvailable[] = $setNo;
+            }
+        }
+
+        $status = count($setsInLaundry) > 0 ? 'IN LAUNDRY' : 'AVAILABLE';
+
+        $histories = Transaction::with(['items', 'creator'])->where('entity_id', $entity->id)
         ->latest()
-        //->take(5)
         ->get();
 
-        return view('public.preview', compact('entity', 'status', 'histories'));
+        return view('public.preview', compact('entity', 'status', 'histories', 'totalSetsOwned', 'setsInLaundry', 'setsAvailable'));
     }
 
     public function laundryForm($code)
@@ -575,7 +597,28 @@ class EntityController extends Controller
             ->latest()
             ->first();
 
-        return view('vendor.action', compact('entity', 'activeTransaction'));
+        $groupedSets = [];
+        $uniqueItems = [];
+        if (!$activeTransaction && $entity->items && $entity->items->count() > 0) {
+            foreach ($entity->items as $item) {
+                // Tampilkan item yang siap dicuci (AVAILABLE, AKTIF, Diterima, dll)
+                $status = strtoupper($item->pivot->status ?? '');
+                if (!in_array($status, ['LAUNDRY', 'DIPROSES'])) {
+                    $setNo = $item->pivot->set_no;
+                    if (!isset($groupedSets[$setNo])) {
+                        $groupedSets[$setNo] = [];
+                    }
+                    $groupedSets[$setNo][$item->item_name] = $item;
+                    
+                    if (!in_array($item->item_name, $uniqueItems)) {
+                        $uniqueItems[] = $item->item_name;
+                    }
+                }
+            }
+            ksort($groupedSets);
+        }
+
+        return view('vendor.action', compact('entity', 'activeTransaction', 'groupedSets', 'uniqueItems'));
     }
 
     public function vendorUpdateStatus(Request $request, $id)
@@ -595,15 +638,19 @@ class EntityController extends Controller
                 'transaction_end_date' => ($newStatus === 'FINISHED') ? now() : null,
             ]);
 
-            // Sinkronisasi status di ENTITY_DETAIL_ITEM
-            $itemIds = $transaction->items()->pluck('TRANSACTION_DETAIL_ITEM.item_id')->toArray();
+            // Sinkronisasi status di ENTITY_DETAIL_ITEM secara presisi
+            $pivotItems = DB::table('TRANSACTION_DETAIL_ITEM')->where('transaction_id', $id)->get();
             
-            if (!empty($itemIds)) {
+            if ($pivotItems->count() > 0) {
                 $pivotStatus = ($newStatus === 'FINISHED') ? 'AVAILABLE' : 'LAUNDRY';
-                DB::table('ENTITY_DETAIL_ITEM')
-                    ->where('entity_id', $transaction->entity_id)
-                    ->whereIn('item_id', $itemIds)
-                    ->update(['status' => $pivotStatus, 'updated_at' => now()]);
+                
+                foreach($pivotItems as $p) {
+                    DB::table('ENTITY_DETAIL_ITEM')
+                        ->where('entity_id', $transaction->entity_id)
+                        ->where('item_id', $p->item_id)
+                        ->where('set_no', $p->set_no)
+                        ->update(['status' => $pivotStatus, 'updated_at' => now()]);
+                }
             }
 
             DB::commit();
@@ -627,7 +674,6 @@ class EntityController extends Controller
         $entity = \App\Models\Entity::with('items')->where('npk', $user->npk)->first();
         
         $isInLaundry = false;
-        $isReadyForPickup = false;
         $activeTransaction = null;
 
         if ($entity) {
@@ -640,26 +686,6 @@ class EntityController extends Controller
 
             if ($activeTransaction) {
                 $isInLaundry = true;
-            } else {
-                // Cek apakah ada transaksi FINISHED yang belum di-pickup (belum ada "Ambil dari laundry" setelahnya)
-                $lastSerah = Transaction::where('entity_id', $entity->id)
-                    ->where('transaction_type', 'Serah ke laundry')
-                    ->where('transaction_status', 'FINISHED')
-                    ->latest()
-                    ->first();
-
-                if ($lastSerah) {
-                    // Cek apakah sudah ada "Ambil dari laundry" setelah serah ini
-                    $sudahDiambil = Transaction::where('entity_id', $entity->id)
-                        ->where('transaction_type', 'Ambil dari laundry')
-                        ->where('created_at', '>=', $lastSerah->created_at)
-                        ->exists();
-
-                    if (!$sudahDiambil) {
-                        $isReadyForPickup = true;
-                        $activeTransaction = $lastSerah;
-                    }
-                }
             }
         }
 
@@ -674,58 +700,7 @@ class EntityController extends Controller
             }
         }
 
-        return view('employee.dashboard', compact('user', 'entity', 'sets', 'isInLaundry', 'isReadyForPickup', 'activeTransaction'));
-    }
-
-    /**
-     * Employee konfirmasi bahwa barang laundry sudah diambil.
-     * Otomatis membuat transaksi "Ambil dari laundry" dan reset status item.
-     */
-    public function employeeConfirmPickup($transactionId)
-    {
-        try {
-            DB::beginTransaction();
-
-            $serahTransaction = Transaction::with('items')->findOrFail($transactionId);
-            $entityId = $serahTransaction->entity_id;
-
-            // Buat kode transaksi untuk pengambilan
-            $dateCode = now()->format('Ymd');
-            $maxCode = Transaction::where('transaction_code', 'LIKE', "TRX-AMB-{$dateCode}-%")
-                ->lockForUpdate()
-                ->max('transaction_code');
-            $count = $maxCode ? ((int) substr($maxCode, -3)) + 1 : 1;
-            $transactionCode = "TRX-AMB-{$dateCode}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
-
-            // Buat record transaksi "Ambil dari laundry"
-            $pickupTransaction = Transaction::create([
-                'entity_id'              => $entityId,
-                'transaction_code'       => $transactionCode,
-                'transaction_type'       => 'Ambil dari laundry',
-                'transaction_start_date' => now(),
-                'transaction_end_date'   => now(),
-                'transaction_status'     => 'FINISHED',
-                'creator_id'             => Auth::id(),
-            ]);
-
-            // Attach items yang sama dari transaksi serah
-            $itemIds = $serahTransaction->items->pluck('id')->toArray();
-            $pickupTransaction->items()->attach($itemIds);
-
-            // Reset status item di ENTITY_DETAIL_ITEM
-            DB::table('ENTITY_DETAIL_ITEM')
-                ->where('entity_id', $entityId)
-                ->whereIn('item_id', $itemIds)
-                ->update(['status' => 'AVAILABLE', 'updated_at' => now()]);
-
-            DB::commit();
-
-            return redirect()->route('employee.dashboard')->with('success', 'Pengambilan berhasil dikonfirmasi! Seragam Anda sudah kembali.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->route('employee.dashboard')->with('error', 'Gagal konfirmasi: ' . $e->getMessage());
-        }
+        return view('employee.dashboard', compact('user', 'entity', 'sets', 'isInLaundry', 'activeTransaction'));
     }
 }
 

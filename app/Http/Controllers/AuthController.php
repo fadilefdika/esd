@@ -72,6 +72,24 @@ class AuthController extends Controller
 
                 // Redirect ke URL yang dituju (intended) sebelum dipaksa login, atau fallback ke dashboard
                 return redirect()->intended(route('employee.dashboard'));
+            } elseif ($role === 'vendor') {
+                // Vendor Login Logic
+                $vendor = \App\Models\Vendor::where('username', $decryptedUsername)->first();
+                
+                if (!$vendor) {
+                    DB::rollBack();
+                    return back()->withErrors(['Username/Kode Vendor tidak ditemukan.'])->withInput();
+                }
+
+                if (!\Hash::check($decryptedPassword, $vendor->password_hash)) {
+                    DB::rollBack();
+                    return back()->withErrors(['Password salah.'])->withInput();
+                }
+            
+                Auth::guard('vendor')->login($vendor);
+                DB::commit();
+
+                return redirect()->intended(route('vendor.dashboard'));
             } else {
                 // Admin Login Logic
                 $user = Admin::where('username', $decryptedUsername)->first();
@@ -102,10 +120,12 @@ class AuthController extends Controller
 
         Auth::guard('admin')->logout();
         Auth::guard('web')->logout();
+        Auth::guard('vendor')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken(); // for CSRF protection
         $request->session()->forget('admin');
+        $request->session()->forget('vendor');
 
         return redirect()->route('login');
     }

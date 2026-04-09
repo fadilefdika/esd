@@ -51,7 +51,7 @@ class TransactionController extends Controller
                 // Jika Ganti/Hilang langsung FINISHED, jika Serah statusnya OPEN
                 'transaction_status'     => ($jenis === 'Serah ke laundry') ? 'OPEN' : 'FINISHED',
                 'transaction_end_date'   => ($jenis !== 'Serah ke laundry') ? now() : null,
-                'creator_id'             => Auth::id() ?? 1,
+                'creator_id'             => Auth::guard('vendor')->id() ?? Auth::id() ?? 1,
             ]);
 
             // Jika ini adalah proses "Ambil", kita juga harus menutup (FINISH) transaksi "Serah" sebelumnya
@@ -67,22 +67,73 @@ class TransactionController extends Controller
                 $message = "Transaksi $jenis berhasil dicatat.";
             }
 
-            // Attach items ke record baru ini
-            $transaction->items()->attach($request->items);
+            $submittedItems = $request->items; // array of "1_1", "2_1"
+            $attachData = [];
+            $syncItems = [];
+            
+            if ($submittedItems && is_array($submittedItems)) {
+                $creatorId = Auth::guard('vendor')->id() ?? Auth::id() ?? 1;
+                foreach($submittedItems as $val) {
+                    if (strpos($val, '_') !== false) {
+                        list($itemId, $setNo) = explode('_', $val);
+                        $attachData[$itemId] = ['set_no' => $setNo, 'creator_id' => $creatorId];
+                        $syncItems[] = ['item_id' => $itemId, 'set_no' => $setNo];
+                    } else {
+                        // fallback if someone sends normal item_ids without set_no
+                        $attachData[$val] = ['set_no' => 1, 'creator_id' => $creatorId];
+                        $syncItems[] = ['item_id' => $val, 'set_no' => 1];
+                    }
+                }
+            }
 
-            // Sinkronisasi status item di ENTITY_DETAIL_ITEM
+            // Attach items ke record baru ini
+            if (count($attachData) > 0) {
+                // Warning: if multiple sets use the same item_id, attach() will complain about duplicate primary keys
+                // if it's not handled gracefully. In Laravel, if you attach the identical Model ID with different pivot data, 
+                // you must do it separately or ensure primary keys allow it. 
+                // Fortunately, we can attach correctly because we map $itemId -> [pivotData].
+                // Wait! If an employee sends TWO Baju (Set 1 Baju AND Set 2 Baju), that's item_id=1 twice!
+                // Since attach() parameter is keyed by item_id ($attachData[$itemId]), the second one will overwrite the first!
+                // To attach duplicate item_ids with different pivot data, we can just pass a flat array!
+                $flatAttach = [];
+                foreach($syncItems as $si) {
+                    $flatAttach[] = [
+                        'item_id' => $si['item_id'],
+                        'set_no' => $si['set_no'],
+                        'creator_id' => $creatorId
+                    ];
+                }
+                
+                // insert directly to TRANSACTION_DETAIL_ITEM
+                foreach($flatAttach as $fa) {
+                    DB::table('TRANSACTION_DETAIL_ITEM')->insert([
+                        'transaction_id' => $transaction->id,
+                        'item_id' => $fa['item_id'],
+                        'set_no' => $fa['set_no'],
+                        'creator_id' => $fa['creator_id'],
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+
+            // Sinkronisasi status item di ENTITY_DETAIL_ITEM secara presisi
             if ($jenis === 'Serah ke laundry') {
-                // Update status item yang di-laundry menjadi LAUNDRY
-                DB::table('ENTITY_DETAIL_ITEM')
-                    ->where('entity_id', $entityId)
-                    ->whereIn('item_id', $request->items)
-                    ->update(['status' => 'LAUNDRY', 'updated_at' => now()]);
+                foreach($syncItems as $si) {
+                    DB::table('ENTITY_DETAIL_ITEM')
+                        ->where('entity_id', $entityId)
+                        ->where('item_id', $si['item_id'])
+                        ->where('set_no', $si['set_no'])
+                        ->update(['status' => 'LAUNDRY', 'updated_at' => now()]);
+                }
             } elseif ($jenis === 'Ambil dari laundry') {
-                // Kembalikan status item menjadi AVAILABLE
-                DB::table('ENTITY_DETAIL_ITEM')
-                    ->where('entity_id', $entityId)
-                    ->whereIn('item_id', $request->items)
-                    ->update(['status' => 'AVAILABLE', 'updated_at' => now()]);
+                foreach($syncItems as $si) {
+                    DB::table('ENTITY_DETAIL_ITEM')
+                        ->where('entity_id', $entityId)
+                        ->where('item_id', $si['item_id'])
+                        ->where('set_no', $si['set_no'])
+                        ->update(['status' => 'AVAILABLE', 'updated_at' => now()]);
+                }
             }
 
             DB::commit();

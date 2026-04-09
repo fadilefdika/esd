@@ -148,28 +148,137 @@
     <i class="bi bi-qr-code-scan"></i>
 </button>
 
+<!-- Scan Modal -->
+<div class="modal fade" id="scanModal" tabindex="-1" aria-labelledby="scanModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius: 16px; overflow: hidden; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+      <div class="modal-header bg-light border-0 pb-2">
+        <h6 class="modal-title fw-bold" id="scanModalLabel"><i class="bi bi-qr-code-scan me-2 text-primary"></i> Scan QR Code Seragam</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0 bg-dark position-relative">
+        <div id="reader" style="width: 100%; border: none;"></div>
+      </div>
+      <div class="modal-footer bg-light border-0 d-flex justify-content-between py-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="simulateScanFallback()" style="font-weight: 500; font-size: 0.8rem;">
+            <i class="bi bi-keyboard"></i> Input Manual
+        </button>
+        <button type="button" class="btn btn-sm btn-danger px-3" data-bs-dismiss="modal" style="font-weight: 500; font-size: 0.8rem;">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    function simulateScan() {
-        Swal.fire({
-            title: 'Scan QR Code',
-            text: 'Masukkan Kode Entity:',
-            input: 'text',
-            inputPlaceholder: 'Contoh: ENT-2026-0001',
-            showCancelButton: true,
-            confirmButtonColor: '#2563eb',
-            cancelButtonColor: '#94a3b8',
-            confirmButtonText: 'Cari',
-            cancelButtonText: 'Batal',
-            inputValidator: (value) => {
-                if (!value || !value.trim()) return 'Kode tidak boleh kosong!';
-            }
-        }).then((result) => {
-            if (result.isConfirmed && result.value) {
-                window.location.href = `/vendor/scan/${result.value.trim()}`;
-            }
-        });
+<style>
+    /* Styling for html5-qrcode UI overrides to look more integrated */
+    #reader button {
+        background-color: #2563eb;
+        color: white;
+        border: none;
+        padding: 5px 15px;
+        border-radius: 5px;
+        margin: 5px;
+        font-size: 0.85rem;
     }
+    #reader select {
+        padding: 5px;
+        border-radius: 5px;
+        font-size: 0.85rem;
+        margin: 5px;
+    }
+    #reader a { color: #2563eb; }
+</style>
+<script>
+    let html5QrcodeScanner = null;
+
+    function simulateScan() {
+        const modalEl = document.getElementById('scanModal');
+        const bsModal = new bootstrap.Modal(modalEl);
+        bsModal.show();
+
+        if (!html5QrcodeScanner) {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader",
+                { fps: 10, qrbox: {width: 250, height: 250} },
+                false
+            );
+        }
+        
+        // Delay render slightly so modal finishes transition
+        setTimeout(() => {
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        }, 200);
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        if(html5QrcodeScanner) {
+            html5QrcodeScanner.clear();
+        }
+        const modalEl = document.getElementById('scanModal');
+        const bsModal = bootstrap.Modal.getInstance(modalEl);
+        if(bsModal) bsModal.hide();
+        
+        let code = decodedText;
+        if(code.includes('/')) {
+            let parts = code.split('/');
+            code = parts[parts.length - 1]; // Assume last URL segment is the entity code
+        }
+        
+        Swal.fire({
+            title: 'Memproses...',
+            text: 'Membuka data cucian...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+        
+        window.location.href = `/vendor/scan/${code}`;
+    }
+
+    function onScanFailure(error) {
+        // fail silently in background
+    }
+
+    function simulateScanFallback() {
+        const modalEl = document.getElementById('scanModal');
+        const bsModal = bootstrap.Modal.getInstance(modalEl);
+        if(bsModal) bsModal.hide();
+        if(html5QrcodeScanner) html5QrcodeScanner.clear();
+        
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Input Kode Manual',
+                text: 'Masukkan Kode Entity/Seragam:',
+                input: 'text',
+                inputPlaceholder: 'Contoh: ENT-2026-0001',
+                showCancelButton: true,
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#94a3b8',
+                confirmButtonText: 'Cari',
+                cancelButtonText: 'Batal',
+                inputValidator: (value) => {
+                    if (!value || !value.trim()) return 'Kode tidak boleh kosong!';
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    window.location.href = `/vendor/scan/${result.value.trim()}`;
+                }
+            });
+        }, 500); // Wait for modal to hide
+    }
+
+    // Clear scanner when modal is closed
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalEl = document.getElementById('scanModal');
+        if(modalEl) {
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                if(html5QrcodeScanner) {
+                    html5QrcodeScanner.clear().catch(e => console.error(e));
+                }
+            });
+        }
+    });
 
     // Client-side Pagination & Filter
     document.addEventListener('DOMContentLoaded', function() {

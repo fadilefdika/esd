@@ -155,13 +155,61 @@
 
         </div>
     @else
-        <!-- Tidak ada transaksi aktif -->
-        <div class="card-panel text-center py-4">
-            <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
-            <p class="text-muted mt-2 mb-0">Tidak ada cucian aktif untuk kode ini.</p>
-            <a href="{{ route('vendor.dashboard') }}" class="btn btn-outline-primary btn-sm mt-3 rounded-pill px-4">
-                <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard
-            </a>
+        <div class="card-panel mb-3">
+            <h6 class="fw-bold text-dark mb-3" style="font-size: 0.85rem;">
+                <i class="bi bi-box-arrow-in-right text-primary me-1"></i> Form Penerimaan Laundry
+            </h6>
+            
+            <form id="formTerimaLaundry">
+                <input type="hidden" name="entity_id" value="{{ $entity->id }}">
+                <input type="hidden" name="jenis_transaksi" value="Serah ke laundry">
+                
+                <div class="mb-3">
+                    <label class="form-label" style="font-size: 0.85rem; font-weight: 600;">Tanggal & Waktu Transaksi</label>
+                    <input type="datetime-local" class="form-control" name="transaction_date" value="{{ now()->format('Y-m-d\TH:i') }}" required style="font-size: 0.85rem;">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label mb-2" style="font-size: 0.85rem; font-weight: 600;">Pilih Item yang Diterima</label>
+                    
+                    <div class="row g-2">
+                        @if(isset($groupedSets) && count($groupedSets) > 0)
+                            @foreach($groupedSets as $setNo => $itemsInSet)
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm" style="border-radius: 12px; border-left: 4px solid #3b82f6 !important;">
+                                        <div class="card-body p-3">
+                                            <h6 class="fw-bold mb-2 text-dark" style="font-size: 0.9rem;">SET {{ $setNo }}</h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                @foreach($itemsInSet as $itemName => $item)
+                                                    <div class="form-check m-0">
+                                                        <input class="form-check-input item-checkbox" type="checkbox" name="items[]" value="{{ $item->id }}_{{ $setNo }}" id="item_{{ $item->id }}_{{ $setNo }}" data-label="{{ $item->item_name }} (Set {{ $setNo }})">
+                                                        <label class="form-check-label" for="item_{{ $item->id }}" style="font-size: 0.85rem;">
+                                                            {{ $itemName }}
+                                                        </label>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        @else
+                            <div class="col-12">
+                                <div class="alert alert-warning border-0 text-center" style="border-radius: 12px; font-size: 0.85rem;">
+                                    Tidak ada item yang bisa di-laundry (Tidak ada item status AVAILABLE).
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <a href="{{ route('vendor.dashboard') }}" class="btn btn-light w-50" style="border-radius: 12px; font-weight: 600;">Batal</a>
+                    <button type="button" class="btn btn-primary w-50" id="btnSubmitLaundry" style="border-radius: 12px; font-weight: 600;">
+                        Proses Terima
+                    </button>
+                </div>
+            </form>
         </div>
     @endif
 </div>
@@ -238,6 +286,66 @@
                     title: 'Terkirim!',
                     text: 'Laporan kerusakan berhasil dikirim.',
                     confirmButtonColor: '#2563eb'
+                });
+            });
+        }
+    });
+</script>
+@else
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form Terima Laundry
+        const btnSubmitLaundry = document.getElementById('btnSubmitLaundry');
+        if (btnSubmitLaundry) {
+            btnSubmitLaundry.addEventListener('click', function() {
+                const form = document.getElementById('formTerimaLaundry');
+                
+                let checkedItems = [];
+                document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
+                    checkedItems.push(cb.dataset.label);
+                });
+
+                if(checkedItems.length === 0) {
+                    Swal.fire({ icon: 'warning', title: 'Perhatian', text: 'Pilih minimal 1 item yang diterima!', confirmButtonColor: '#2563eb' });
+                    return;
+                }
+
+                btnSubmitLaundry.disabled = true;
+                btnSubmitLaundry.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Memproses...';
+
+                const formData = new FormData(form);
+
+                fetch("{{ route('transactions.store') }}", {
+                    method: "POST",
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: 'Pakaian berhasil diterima masuk ke laundry.',
+                            confirmButtonColor: '#2563eb',
+                            allowOutsideClick: false
+                        }).then(() => {
+                            window.location.href = "{{ route('vendor.dashboard') }}";
+                        });
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Gagal', text: data.message || 'Terjadi kesalahan', confirmButtonColor: '#dc3545' });
+                        btnSubmitLaundry.disabled = false;
+                        btnSubmitLaundry.innerHTML = 'Proses Terima';
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Gagal menghubungi server', confirmButtonColor: '#dc3545' });
+                    btnSubmitLaundry.disabled = false;
+                    btnSubmitLaundry.innerHTML = 'Proses Terima';
                 });
             });
         }

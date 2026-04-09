@@ -325,20 +325,6 @@
         document.getElementById('login-form').addEventListener('submit', function (e) {
             e.preventDefault();
             
-            // -- FRONTEND DUMMY LOGIC FOR VENDOR --
-            const selectedRole = document.querySelector('input[name="role"]:checked').value;
-            if (selectedRole === 'vendor') {
-                const btn = this.querySelector('.btn-ems');
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" style="width: 1rem; height: 1rem;"></span> Loading...';
-                
-                setTimeout(() => {
-                    alert('Simulasi Login Vendor Berhasil! Mengalihkan ke Dashboard Vendor...');
-                    window.location.href = '/vendor/dashboard';
-                }, 800);
-                return; // Stop form submission to backend
-            }
-            // ------------------------------------
-
             const btn = this.querySelector('.btn-ems');
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" style="width: 1rem; height: 1rem;"></span> Loading...';
             btn.style.opacity = '0.8';

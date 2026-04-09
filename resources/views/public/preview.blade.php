@@ -250,6 +250,18 @@
                             <span class="fw-bold">{{ $itemSize }}</span>
                         </td>
                     </tr>
+                    <tr>
+                        <td class="label-col" style="padding-top: 15px;">Total Set Dimiliki</td>
+                        <td class="value-col fw-bold" style="padding-top: 15px;">{{ $totalSetsOwned }} Set</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Set Available (Ready)</td>
+                        <td class="value-col text-success fw-bold">{{ count($setsAvailable) }} Set</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Set Sedang Laundry</td>
+                        <td class="value-col text-warning fw-bold">{{ count($setsInLaundry) }} Set</td>
+                    </tr>
                 </table>
             </div>
 
@@ -278,8 +290,24 @@
                                     </div>
                                     <div class="text-muted" style="font-size: 0.7rem;">
                                         {{ $log->transaction_start_date->format('d M Y, H:i') }} - 
-                                        <span class="text-primary">{{ $log->creator->name ?? 'System' }}</span>
+                                        <span class="text-primary">{{ $log->creator->name ?? $log->creator->fullname ?? 'System' }}</span>
                                     </div>
+                                    @if($log->items && $log->items->count() > 0)
+                                        <div class="mt-1" style="font-size: 0.7rem; color: #475569;">
+                                            @php
+                                                $logSets = [];
+                                                foreach($log->items as $item) {
+                                                    $setNo = $item->pivot->set_no ?? $item->pivot->item_id; // fallback if set_no not found
+                                                    $logSets[$setNo] = true;
+                                                }
+                                                $logSetsKeys = array_keys($logSets);
+                                                sort($logSetsKeys);
+                                                $formattedSets = array_map(function($s) { return "Set $s"; }, $logSetsKeys);
+                                            @endphp
+                                            <i class="bi bi-tag-fill me-1" style="color: #64748b;"></i>
+                                            <strong>{{ implode(', ', $formattedSets) }}</strong>
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         @empty
@@ -294,20 +322,18 @@
 
             <!-- Authenticaton / Check Auth  -->
             <div class="mt-4 border-top pt-3 text-center">
-                @auth
-                    @if(auth()->user()->role === 'admin' || auth()->user()->role === 'employee' || Auth::guard('web')->check() || Auth::guard('admin')->check())
-                        <a href="{{ route('public.laundry.form', $entity->code) }}" class="btn btn-submit">
-                            <i class="bi bi-file-earmark-text me-2"></i> Form Transaksi ESD
-                        </a>
-                    @else
-                        <p class="text-muted" style="font-size: 0.8rem;">Role Anda tidak memiliki akses transaksi.</p>
-                    @endif
-                @else
-                    <p class="text-muted mb-2" style="font-size: 0.75rem;">Harap login untuk memproses transaksi laundry baju Anda.</p>
-                    <a href="{{ route('public.laundry.form', $entity->code) }}" class="btn btn-outline-primary w-100" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;">
-                        <i class="bi bi-box-arrow-in-right me-2"></i> Lanjut Login & Form Transaksi
+                @if(Auth::guard('vendor')->check())
+                    <a href="{{ route('vendor.action', $entity->code) }}" class="btn btn-submit" style="background-color: #059669;">
+                        <i class="bi bi-basket me-2"></i> Proses Transaksi Laundry (Vendor)
                     </a>
-                @endauth
+                @elseif(Auth::guard('web')->check() || Auth::guard('admin')->check())
+                    <p class="text-muted" style="font-size: 0.8rem;">Hanya staf Vendor Laundry yang dapat memproses transaksi seragam.</p>
+                @else
+                    <p class="text-muted mb-2" style="font-size: 0.75rem;">Review ini hanya untuk tracking. Vendor harap login untuk memproses.</p>
+                    <a href="{{ route('login') }}" class="btn btn-outline-primary w-100" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;">
+                        <i class="bi bi-box-arrow-in-right me-2"></i> Login Aplikasi
+                    </a>
+                @endif
             </div>
 
             <div class="text-center mt-5">

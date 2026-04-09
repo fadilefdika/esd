@@ -396,3 +396,38 @@ UPDATE entity
 SET category = 'Karyawan' 
 WHERE category = '-';
 
+
+
+//update 9 april Fadil 
+
+USE [esd];
+GO
+
+-- 1. Menambahkan kolom 'vendor_id' ke tabel Transaksi
+ALTER TABLE [dbo].[TRANSACTION]
+ADD [vendor_id] INT NULL;
+GO
+
+-- 2. Menambahkan Foreign Key Constraint (Opsional, tapi disarankan)
+-- Ini memastikan vendor_id yang dimasukkan harus ada di tabel VENDOR
+ALTER TABLE [dbo].[TRANSACTION]
+ADD CONSTRAINT FK_TRANSACTION_VENDOR 
+FOREIGN KEY ([vendor_id]) 
+REFERENCES [dbo].[VENDOR]([id]);
+GO
+
+-- 3. Update data yang sudah ada (jika ada transaksi lama)
+-- Kita asumsikan vendor default adalah 'vendor_laundry' (ID 1)
+UPDATE [dbo].[TRANSACTION]
+SET [vendor_id] = 1
+WHERE [vendor_id] IS NULL;
+GO
+
+  CREATE TABLE vendors (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    fullname VARCHAR(255) NOT NULL,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME2 NULL
+);

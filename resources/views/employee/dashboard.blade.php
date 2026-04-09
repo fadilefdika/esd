@@ -71,33 +71,11 @@
             <span class="badge bg-primary px-2 py-1">{{ $entity->code }}</span>
         </div>
 
-        {{-- Banner: Siap Diambil (Vendor sudah tandai selesai) --}}
-        @if($isReadyForPickup && $activeTransaction)
-            <div class="pickup-banner mb-3">
-                <div class="d-flex align-items-center mb-2">
-                    <i class="bi bi-bag-check-fill text-success me-2 fs-4"></i>
-                    <div>
-                        <div class="fw-bold text-dark" style="font-size: 0.9rem;">Cucian Anda Sudah Selesai!</div>
-                        <div class="text-muted" style="font-size: 0.75rem;">
-                            {{ $activeTransaction->transaction_code }} &bull; 
-                            Selesai: {{ $activeTransaction->transaction_end_date ? $activeTransaction->transaction_end_date->format('d M Y, H:i') : '-' }}
-                        </div>
-                    </div>
-                </div>
-                <form action="{{ route('employee.confirm-pickup', $activeTransaction->id) }}" method="POST" id="formPickup">
-                    @csrf
-                    <button type="submit" class="btn-pickup">
-                        <i class="bi bi-hand-index-thumb me-2"></i> Konfirmasi Sudah Diambil
-                    </button>
-                </form>
-            </div>
-        @endif
-
         {{-- Banner: Sedang di Laundry --}}
         @if($isInLaundry)
             <div class="alert laundry-banner border-0 mb-3 d-flex align-items-center px-3 py-3">
                 <span class="spinner-grow spinner-grow-sm text-warning me-2" role="status"></span>
-                <span class="fw-semibold text-dark">Seragam Anda sedang dalam proses laundry.</span>
+                <span class="fw-semibold text-dark" style="font-size: 0.85rem;">Sebagian atau seluruh seragam Anda sedang dalam proses laundry.</span>
             </div>
         @endif
 
@@ -117,17 +95,6 @@
                     }
                 }
 
-                // Fallback dari Transaction check
-                if ($setStatus === 'Tersedia' && $isInLaundry) {
-                    $setStatus = 'Sedang di Laundry';
-                    $badgeClass = 'bg-warning text-dark';
-                    $borderColor = '#f59e0b';
-                }
-                if ($setStatus === 'Tersedia' && $isReadyForPickup) {
-                    $setStatus = 'Siap Diambil';
-                    $badgeClass = 'bg-info text-light';
-                    $borderColor = '#06b6d4';
-                }
             @endphp
             <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px; border-left: 4px solid {{ $borderColor }} !important;">
                 <div class="card-body p-3">
@@ -149,15 +116,14 @@
             </div>
         @endforelse
 
-        @if(!$isInLaundry && !$isReadyForPickup)
-            <a href="{{ route('public.laundry.form', $entity->code) }}" class="btn btn-primary w-100 py-3 mt-2 shadow-sm" style="border-radius: 12px; font-weight: 600;">
-                <i class="bi bi-basket-fill me-2"></i> Ajukan Laundry Baru
+        <div class="d-flex gap-2 mt-3">
+            <a href="#" class="btn btn-outline-danger w-50 py-2 shadow-sm" style="border-radius: 12px; font-weight: 600; font-size: 0.85rem;" onclick="Swal.fire('Fitur Segera Hadir', 'Form Pelaporan sedang dikembangkan oleh Admin.', 'info')">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i> Lapor Rusak/Hilang
             </a>
-        @elseif($isInLaundry)
-            <button class="btn btn-secondary w-100 py-3 mt-2" style="border-radius: 12px; font-weight: 600;" disabled>
-                <i class="bi bi-hourglass-split me-2"></i> Menunggu Proses Laundry...
-            </button>
-        @endif
+            <a href="#" class="btn btn-primary w-50 py-2 shadow-sm" style="border-radius: 12px; font-weight: 600; font-size: 0.85rem;" onclick="Swal.fire('Fitur Segera Hadir', 'Form Penggantian Baru sedang dikembangkan oleh Admin.', 'info')">
+                <i class="bi bi-arrow-repeat me-1"></i> Pengajuan Baru
+            </a>
+        </div>
 
     @else
         <div class="card border-0 shadow-sm" style="border-radius: 16px;">
