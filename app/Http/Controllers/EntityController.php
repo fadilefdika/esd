@@ -642,7 +642,7 @@ class EntityController extends Controller
             $pivotItems = DB::table('TRANSACTION_DETAIL_ITEM')->where('transaction_id', $id)->get();
             
             if ($pivotItems->count() > 0) {
-                $pivotStatus = ($newStatus === 'FINISHED') ? 'AVAILABLE' : 'LAUNDRY';
+                $pivotStatus = ($newStatus === 'FINISHED') ? 'diterima' : 'LAUNDRY';
                 
                 foreach($pivotItems as $p) {
                     DB::table('ENTITY_DETAIL_ITEM')

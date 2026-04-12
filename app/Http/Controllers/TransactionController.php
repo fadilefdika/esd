@@ -132,7 +132,7 @@ class TransactionController extends Controller
                         ->where('entity_id', $entityId)
                         ->where('item_id', $si['item_id'])
                         ->where('set_no', $si['set_no'])
-                        ->update(['status' => 'AVAILABLE', 'updated_at' => now()]);
+                        ->update(['status' => 'diterima', 'updated_at' => now()]);
                 }
             }
 

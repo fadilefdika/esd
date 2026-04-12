@@ -289,7 +289,7 @@
                                         @endif
                                     </div>
                                     <div class="text-muted" style="font-size: 0.7rem;">
-                                        {{ $log->transaction_start_date->format('d M Y, H:i') }} - 
+                                        {{ $log->created_at->format('d M Y, H:i') }} - 
                                         <span class="text-primary">{{ $log->creator->name ?? $log->creator->fullname ?? 'System' }}</span>
                                     </div>
                                     @if($log->items && $log->items->count() > 0)
