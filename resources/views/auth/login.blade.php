@@ -189,6 +189,19 @@
             box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
         }
 
+        #togglePassword {
+            color: #6c757d; /* Warna abu-abu muted agar tidak terlalu mencolok */
+            transition: color 0.2s;
+        }
+
+        #togglePassword:hover {
+            color: #0d6efd; /* Berubah jadi biru saat dihover */
+        }
+
+        /* Pastikan input password tidak menimpa ikon */
+        #password {
+            padding-right: 45px !important;
+        }
     </style>
 </head>
 
@@ -249,7 +262,12 @@
 
                     <div class="input-group-custom">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" id="password" class="form-control" required placeholder="••••••••">
+                        <div class="position-relative">
+                            <input type="password" id="password" class="form-control" required placeholder="••••••••" style="padding-right: 40px;">
+                            <span id="togglePassword" class="position-absolute end-0 top-50 translate-middle-y me-3" style="cursor: pointer; z-index: 10;">
+                                <i class="bi bi-eye" id="eyeIcon"></i>
+                            </span>
+                        </div>
                     </div>
                
                     <button type="submit" class="btn-ems">
@@ -265,9 +283,11 @@
         </div>
     </div>
 
-@if(session('lockout_seconds'))
+<script src="https://cdn.jsdelivr.net/npm/jsencrypt@3.0.0-rc.1/bin/jsencrypt.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
+    // === 1. Logika Lockout Timer ===
+    @if(session('lockout_seconds'))
         let timerElement = document.getElementById('auth-timer');
         let messageElement = document.getElementById('auth-message');
         let submitBtn = document.querySelector('.btn-ems');
@@ -280,11 +300,9 @@
 
         let countdown = setInterval(function() {
             seconds--;
-            
             if (seconds <= 0) {
                 clearInterval(countdown);
-                messageElement.innerHTML = 'Silakan masukkan username dan password';
-                
+                if(messageElement) messageElement.innerHTML = 'Silakan masukkan username dan password';
                 if (submitBtn) {
                     submitBtn.style.opacity = '1';
                     submitBtn.style.pointerEvents = 'auto';
@@ -293,53 +311,69 @@
                 if (timerElement) timerElement.innerText = seconds;
             }
         }, 1000);
-    });
-</script>
-@endif
-    <script src="https://cdn.jsdelivr.net/npm/jsencrypt@3.0.0-rc.1/bin/jsencrypt.min.js"></script>
-    <script>
-        // Add small interactivity: dynamic placeholders and input type based on role
-        document.querySelectorAll('input[name="role"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                const usernameInput = document.getElementById('username');
-                const usernameLabel = document.getElementById('username-label');
-                if(this.value === 'admin') {
-                    usernameLabel.textContent = 'Username';
-                    usernameInput.placeholder = 'Masukkan Username Admin';
-                    usernameInput.type = 'text';
-                }
-                if(this.value === 'employee') {
-                    usernameLabel.textContent = 'NPK';
-                    usernameInput.placeholder = 'Masukkan NPK Karyawan';
-                    usernameInput.type = 'number';
-                }
-                if(this.value === 'vendor') {
-                    usernameLabel.textContent = 'Username';
-                    usernameInput.placeholder = 'Masukkan Kode Vendor / Username';
-                    usernameInput.type = 'text';
-                }
-                usernameInput.value = '';
-            });
-        });
+    @endif
 
-        document.getElementById('login-form').addEventListener('submit', function (e) {
+    // === 2. Toggle Visibility Password ===
+    const togglePassword = document.querySelector('#togglePassword');
+    const passwordInput = document.querySelector('#password');
+    const eyeIcon = document.querySelector('#eyeIcon');
+
+    if (togglePassword && passwordInput) {
+        togglePassword.addEventListener('click', function () {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            
+            // Toggle ikon mata versi Bootstrap
+            eyeIcon.classList.toggle('bi-eye');
+            eyeIcon.classList.toggle('bi-eye-slash');
+        });
+    }
+
+    // === 3. Dynamic UI Based on Role (NPK vs Username) ===
+    document.querySelectorAll('input[name="role"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const usernameInput = document.getElementById('username');
+            const usernameLabel = document.getElementById('username-label');
+            
+            if(!usernameInput || !usernameLabel) return;
+
+            if(this.value === 'employee') {
+                usernameLabel.textContent = 'NPK';
+                usernameInput.placeholder = 'Masukkan NPK Karyawan';
+                usernameInput.type = 'number'; // NPK biasanya angka
+            } else {
+                usernameLabel.textContent = 'Username';
+                usernameInput.placeholder = this.value === 'admin' ? 'Masukkan Username Admin' : 'Masukkan Username';
+                usernameInput.type = 'text';
+            }
+            usernameInput.value = '';
+        });
+    });
+
+    // === 4. Form Submission & RSA Encryption ===
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', function (e) {
             e.preventDefault();
             
             const btn = this.querySelector('.btn-ems');
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" style="width: 1rem; height: 1rem;"></span> Loading...';
-            btn.style.opacity = '0.8';
-            btn.style.pointerEvents = 'none';
-
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+            const usernameValue = document.getElementById('username').value;
+            const passwordValue = document.getElementById('password').value;
             const publicKey = `{!! isset($publicKey) ? str_replace(["\n", "\r"], ["\\n", ""], $publicKey) : '' !!}`;
 
-            if(publicKey) {
+            // Efek Loading
+            if(btn) {
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
+                btn.style.opacity = '0.8';
+                btn.style.pointerEvents = 'none';
+            }
+
+            if(publicKey && publicKey.trim() !== "") {
                 const encrypt = new JSEncrypt();
                 encrypt.setPublicKey(publicKey);
 
-                const encryptedUsername = encrypt.encrypt(username);
-                const encryptedPassword = encrypt.encrypt(password);
+                const encryptedUsername = encrypt.encrypt(usernameValue);
+                const encryptedPassword = encrypt.encrypt(passwordValue);
 
                 if (!encryptedUsername || !encryptedPassword) {
                     alert('Encryption Error. Silakan refresh halaman.');
@@ -349,13 +383,20 @@
 
                 document.getElementById('encrypted_username').value = encryptedUsername;
                 document.getElementById('encrypted_password').value = encryptedPassword;
+                
+                // Kosongkan input asli agar tidak terkirim dalam bentuk plain text (Keamanan Tambahan)
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
             } else {
-                document.getElementById('encrypted_username').value = username;
-                document.getElementById('encrypted_password').value = password;
+                // Fallback jika public key gagal dimuat
+                document.getElementById('encrypted_username').value = usernameValue;
+                document.getElementById('encrypted_password').value = passwordValue;
             }
 
             this.submit();
         });
-    </script>
+    }
+});
+</script>
 </body>
 </html>

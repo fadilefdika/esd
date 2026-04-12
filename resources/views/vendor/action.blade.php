@@ -54,7 +54,7 @@
         @if($activeTransaction)
             <p class="text-muted mb-0" style="font-size: 0.75rem;">
                 <i class="bi bi-receipt me-1"></i> {{ $activeTransaction->transaction_code }} 
-                &bull; Masuk: {{ $activeTransaction->transaction_start_date->format('d M Y, H:i') }}
+                &bull; Masuk: {{ $activeTransaction->created_at->format('d M Y, H:i') }}
             </p>
         @endif
     </div>
@@ -88,11 +88,6 @@
                     <i class="bi bi-arrow-repeat me-1"></i> Update Status
                 </button>
             </li>
-            <li class="nav-item flex-fill text-center" role="presentation">
-                <button class="nav-link w-100" id="lapor-tab" data-bs-toggle="tab" data-bs-target="#lapor" type="button" role="tab" aria-controls="lapor" aria-selected="false">
-                    <i class="bi bi-exclamation-triangle me-1"></i> Lapor Rusak
-                </button>
-            </li>
         </ul>
 
         <!-- Tab Content -->
@@ -106,7 +101,7 @@
                     <i class="bi bi-arrow-repeat fs-4 text-warning me-3"></i>
                     <div>
                         <div class="fw-bold text-dark" style="font-size: 0.9rem;">Status Saat Ini: Sedang Diproses</div>
-                        <div class="text-muted" style="font-size: 0.75rem;">Masuk: {{ $activeTransaction->transaction_start_date->format('d M Y, H:i') }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">Masuk: {{ $activeTransaction->created_at->format('d M Y, H:i') }}</div>
                     </div>
                 </div>
 
@@ -117,39 +112,6 @@
                     <button type="submit" class="submit-btn" id="btnSaveStatus" style="background-color: #059669; box-shadow: 0 4px 6px -1px rgba(5,150,105,0.3);">
                         <i class="bi bi-check2-circle me-2"></i> Tandai Selesai
                     </button>
-                </form>
-            </div>
-
-            <!-- LAPOR RUSAK TAB -->
-            <div class="tab-pane fade" id="lapor" role="tabpanel" aria-labelledby="lapor-tab">
-                <div class="alert alert-warning border-0" style="font-size: 0.8rem; border-radius: 10px;">
-                    <i class="bi bi-info-circle-fill me-1"></i> Form ini untuk melaporkan kondisi pakaian yang rusak sebelum/saat dicuci.
-                </div>
-                
-                <form action="#" method="POST" id="formLaporRusak">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" style="font-size: 0.85rem;">Pilih Item yang Rusak</label>
-                        <select class="form-select" style="border-radius: 10px; font-size: 0.9rem;" required>
-                            <option value="" disabled selected>Pilih item...</option>
-                            @if($entity->items)
-                                @foreach($entity->items as $item)
-                                    <option value="{{ $item->id }}">{{ $item->item_name }} (Set {{ $item->pivot->set_no }})</option>
-                                @endforeach
-                            @endif
-                        </select>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label fw-bold" style="font-size: 0.85rem;">Deskripsi Kerusakan</label>
-                        <textarea class="form-control" rows="4" placeholder="Misal: Kancing baju lepas, ritsleting rusak, noda tinta..." style="border-radius: 10px; font-size: 0.9rem;" required></textarea>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label fw-bold" style="font-size: 0.85rem;">Foto Bukti (Opsional)</label>
-                        <input class="form-control" type="file" accept="image/*" capture="camera" style="border-radius: 10px; font-size: 0.85rem;">
-                    </div>
-
-                    <button type="submit" class="submit-btn" style="background-color: #dc3545; box-shadow: 0 4px 6px -1px rgba(220,53,69,0.2);"><i class="bi bi-send-fill me-2"></i> Kirim Laporan Rusak</button>
                 </form>
             </div>
 
@@ -276,19 +238,6 @@
             });
         });
 
-        // Form Lapor Rusak
-        const formRusak = document.getElementById('formLaporRusak');
-        if (formRusak) {
-            formRusak.addEventListener('submit', function(e) {
-                e.preventDefault();
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Terkirim!',
-                    text: 'Laporan kerusakan berhasil dikirim.',
-                    confirmButtonColor: '#2563eb'
-                });
-            });
-        }
     });
 </script>
 @else
