@@ -1,0 +1,37 @@
+📝 Notulensi Update Sistem ESD (Laundry & Management)
+Tanggal Update: 8 April 2026
+Fokus Utama: Simplifikasi alur transaksi dan penguatan fitur pelaporan (Reporting).
+
+🔄 1. Re-Flow: Proses Laundry (Vendor-Centric)
+Alur laundry diubah total agar lebih praktis. Fokus transaksi kini ada di tangan Vendor, bukan karyawan.
+Penerimaan ESD: Vendor datang ke kantor -> Karyawan menyerahkan seragam.
+Eksekusi Transaksi: Hanya user dengan Role Vendor yang dapat melakukan scan dan konfirmasi penerimaan laundry di aplikasi.
+Notifikasi & Tracking: Karyawan otomatis menerima notifikasi setelah Vendor melakukan scan (Hanya untuk keperluan tracking status).
+Siklus Selesai: Setelah laundry selesai, Vendor memberikan konfirmasi melalui sistem -> Muncul notifikasi ke Karyawan bahwa seragam sudah bisa diambil.
+UI/UX: Alur dipersingkat menjadi: Scan -> Preview -> Form Transaction.
+
+👤 2. Penyesuaian Role & Fitur
+Setiap role kini memiliki batasan tanggung jawab yang lebih tegas:
+Role
+Tanggung Jawab & Fitur Baru
+Vendor
+Otoritas penuh untuk transaksi laundry (Scan & Konfirmasi).
+Employee
+1. No Laundry Rights: Tidak bisa melakukan input transaksi laundry.
+2. Damage Report: Melaporkan kerusakan dengan deskripsi & bukti foto.
+3. Loss Report: Melaporkan kehilangan (Future Feature).
+Admin
+1. New Menu (Reporting): Laporan Laundry, Kerusakan, dan Kehilangan.
+
+
+
+
+2. Employee Detail (Awork Style): Tampilan detail karyawan yang menampilkan Activity Timeline (riwayat lengkap penggunaan seragam).
+
+
+🛠 3. Detail Teknis & Aturan Validasi
+Untuk menjaga integritas data, berikut beberapa aturan baru:
+Date Lock: Input tanggal pada form transaksi akan di-lock (otomatis mengambil tanggal sistem saat itu) untuk menghindari manipulasi data.
+Evidence System: Laporan kerusakan atau kehilangan wajib menyertakan Deskripsi Detail dan Upload Bukti Foto.
+Dashboard Admin: Admin dapat memantau akumulasi kerugian atau tren kerusakan melalui menu Reporting baru.
+

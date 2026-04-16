@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CodeEsdController;
+use App\Http\Controllers\ReportIncidentController;
 use App\Models\Schedule;
 use App\Http\Middleware\AdminAuth;
 use Illuminate\Support\Facades\Route;
@@ -64,4 +65,7 @@ Route::middleware('auth:vendor')->prefix('vendor')->name('vendor.')->group(funct
 // Group for Employee/Karyawan Interface
 Route::middleware('auth:web')->prefix('employee')->name('employee.')->group(function () {
     Route::get('/dashboard', [EntityController::class, 'employeeDashboard'])->name('dashboard');
+
+    Route::post('/report-damage', [ReportIncidentController::class, 'storeReport'])->name('report.store');
+    Route::post('/confirm-laundry-received', [EntityController::class, 'employeeConfirmLaundryReceived'])->name('laundry.confirm');
 });
