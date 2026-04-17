@@ -199,6 +199,16 @@
                             <span class="spinner-grow spinner-grow-sm me-2" role="status"></span>
                             <span class="fw-bold" style="font-size: 0.75rem;">SEDANG DI LAUNDRY</span>
                         </div>
+                    @elseif($status === 'RUSAK')
+                        <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
+                            <i class="bi bi-tools me-2"></i>
+                            <span class="fw-bold" style="font-size: 0.75rem;">ADA SET RUSAK</span>
+                        </div>
+                    @elseif($status === 'HILANG')
+                        <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25">
+                            <i class="bi bi-question-circle-fill me-2"></i>
+                            <span class="fw-bold" style="font-size: 0.75rem;">SET DILAPORKAN HILANG</span>
+                        </div>
                     @else
                         <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25">
                             <i class="bi bi-check-circle-fill me-2"></i>
@@ -255,13 +265,25 @@
                         <td class="value-col fw-bold" style="padding-top: 15px;">{{ $totalSetsOwned }} Set</td>
                     </tr>
                     <tr>
-                        <td class="label-col">Set Available (Ready)</td>
+                        <td class="label-col">Set Tersedia (Ready)</td>
                         <td class="value-col text-success fw-bold">{{ count($setsAvailable) }} Set</td>
                     </tr>
                     <tr>
                         <td class="label-col">Set Sedang Laundry</td>
                         <td class="value-col text-warning fw-bold">{{ count($setsInLaundry) }} Set</td>
                     </tr>
+                    @if(count($setsRusak) > 0)
+                    <tr>
+                        <td class="label-col">Set Rusak</td>
+                        <td class="value-col fw-bold" style="color: #ef4444;">{{ count($setsRusak) }} Set</td>
+                    </tr>
+                    @endif
+                    @if(count($setsHilang) > 0)
+                    <tr>
+                        <td class="label-col">Set Hilang</td>
+                        <td class="value-col fw-bold text-dark">{{ count($setsHilang) }} Set</td>
+                    </tr>
+                    @endif
                 </table>
             </div>
 

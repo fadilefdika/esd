@@ -431,3 +431,28 @@ GO
     created_at DATETIME2 DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME2 NULL
 );
+
+// update 15 April Fadil 
+CREATE TABLE [dbo].[REPORT_INCIDENTS] (
+    [id] BIGINT IDENTITY(1,1) PRIMARY KEY, 
+    [entity_id] INT NOT NULL, -- Diubah dari BIGINT ke INT agar sama dengan ENTITY
+    [item_id] INT NOT NULL,   -- Diubah dari BIGINT ke INT agar sama dengan ITEM
+    [set_no] INT NOT NULL,
+    [report_type] NVARCHAR(20) NOT NULL, 
+    [details] NVARCHAR(MAX) NOT NULL, 
+    [chronology] NVARCHAR(MAX) NULL, 
+    [evidence_path] NVARCHAR(255) NOT NULL, 
+    [status_report] NVARCHAR(20) DEFAULT 'pending', 
+    [created_at] DATETIME2 DEFAULT GETDATE(), 
+    [updated_at] DATETIME2 DEFAULT GETDATE(),
+    [creator_id] BIGINT NOT NULL,
+
+    -- Foreign Keys (Sekarang harusnya aman karena tipe datanya sama)
+    CONSTRAINT [FK_REPORT_ENTITY] FOREIGN KEY ([entity_id]) 
+        REFERENCES [dbo].[ENTITY] ([id]),
+    CONSTRAINT [FK_REPORT_ITEM] FOREIGN KEY ([item_id]) 
+        REFERENCES [dbo].[ITEM] ([id]),
+        
+    CONSTRAINT [CK_Report_Type] CHECK ([report_type] IN ('rusak', 'hilang')),
+    CONSTRAINT [CK_Status_Report] CHECK ([status_report] IN ('pending', 'processed', 'replaced'))
+);

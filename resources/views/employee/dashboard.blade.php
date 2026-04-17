@@ -63,8 +63,6 @@
 
 <div class="container px-3">
 
-
-
     @if($entity)
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="fw-bold text-dark mb-0">Paket Saya: {{ $entity->package ?? 'Standar' }}</h6>
@@ -73,28 +71,46 @@
 
         {{-- Banner: Sedang di Laundry --}}
         @if($isInLaundry)
-            <div class="alert laundry-banner border-0 mb-3 d-flex align-items-center px-3 py-3">
-                <span class="spinner-grow spinner-grow-sm text-warning me-2" role="status"></span>
-                <span class="fw-semibold text-dark" style="font-size: 0.85rem;">Sebagian atau seluruh seragam Anda sedang dalam proses laundry.</span>
+            <div class="alert border-0 mb-3 px-3 py-3" style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 12px;">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="spinner-grow spinner-grow-sm text-warning me-2" role="status"></span>
+                    <span class="fw-semibold text-dark" style="font-size: 0.85rem;">Sebagian atau seluruh seragam Anda sedang dalam proses laundry.</span>
+                </div>
+                <p class="mb-2 text-muted" style="font-size: 0.78rem;">Setelah seragam diterima kembali, konfirmasikan di sini agar status seragam kembali tersedia.</p>
+                <form action="{{ route('employee.laundry.confirm') }}" method="POST">
+                    @csrf
+                    <button type="submit" class="btn btn-success btn-sm w-100 fw-semibold" style="border-radius: 8px; font-size: 0.82rem;">
+                        <i class="bi bi-check2-circle me-1"></i> Saya Sudah Terima Laundry
+                    </button>
+                </form>
             </div>
         @endif
 
         @forelse($sets as $setNo => $items)
             @php
-                $setStatus = 'Tersedia';
-                $badgeClass = 'bg-success';
+                $setStatus   = 'Tersedia';
+                $badgeClass  = 'bg-success';
                 $borderColor = '#10b981';
-                
+
                 foreach($items as $it) {
-                    $status = strtoupper($it->pivot->status ?? '');
-                    if(in_array($status, ['LAUNDRY', 'DIPROSES'])) {
-                        $setStatus = 'Sedang di Laundry';
-                        $badgeClass = 'bg-warning text-dark';
+                    $status = strtolower($it->pivot->status ?? '');
+                    if (in_array($status, ['laundry', 'diproses'])) {
+                        $setStatus   = 'Sedang di Laundry';
+                        $badgeClass  = 'bg-warning text-dark';
                         $borderColor = '#f59e0b';
+                        break;
+                    } elseif ($status === 'rusak') {
+                        $setStatus   = 'Rusak';
+                        $badgeClass  = 'bg-danger';
+                        $borderColor = '#ef4444';
+                        break;
+                    } elseif ($status === 'hilang') {
+                        $setStatus   = 'Hilang';
+                        $badgeClass  = 'bg-dark';
+                        $borderColor = '#6b7280';
                         break;
                     }
                 }
-
             @endphp
             <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px; border-left: 4px solid {{ $borderColor }} !important;">
                 <div class="card-body p-3">
@@ -117,12 +133,9 @@
         @endforelse
 
         <div class="d-flex gap-2 mt-3">
-            <a href="#" class="btn btn-outline-danger w-50 py-2 shadow-sm" style="border-radius: 12px; font-weight: 600; font-size: 0.85rem;" onclick="Swal.fire('Fitur Segera Hadir', 'Form Pelaporan sedang dikembangkan oleh Admin.', 'info')">
+            <button type="button" class="btn btn-outline-danger w-50 py-2 shadow-sm" style="border-radius: 12px; font-weight: 600; font-size: 0.85rem;" data-bs-toggle="modal" data-bs-target="#reportModal">
                 <i class="bi bi-exclamation-triangle-fill me-1"></i> Lapor Rusak/Hilang
-            </a>
-            <a href="#" class="btn btn-primary w-50 py-2 shadow-sm" style="border-radius: 12px; font-weight: 600; font-size: 0.85rem;" onclick="Swal.fire('Fitur Segera Hadir', 'Form Penggantian Baru sedang dikembangkan oleh Admin.', 'info')">
-                <i class="bi bi-arrow-repeat me-1"></i> Pengajuan Baru
-            </a>
+            </button>
         </div>
 
     @else
@@ -139,6 +152,9 @@
         </div>
     @endif
 </div>
+
+{{-- Cukup panggil sub-folder setelah folder components --}}
+<x-forms.form-report-damage-lost :sets="$sets" />
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -161,29 +177,44 @@
             });
         @endif
 
-        // Pickup confirmation with SweetAlert
-        const formPickup = document.getElementById('formPickup');
-        if (formPickup) {
-            formPickup.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const form = this;
-                Swal.fire({
-                    title: 'Konfirmasi Pengambilan',
-                    text: 'Apakah Anda sudah mengambil seragam dari laundry?',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#059669',
-                    cancelButtonColor: '#94a3b8',
-                    confirmButtonText: 'Ya, Sudah Diambil',
-                    cancelButtonText: 'Belum'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.submit();
-                    }
-                });
+        const reportTypeEl = document.getElementById('report_type');
+        const chronologySectionEl = document.getElementById('chronology_section');
+        const chronologyInputEl = document.getElementById('chronology_input');
+
+        if(reportTypeEl) {
+            reportTypeEl.addEventListener('change', function() {
+                if (this.value === 'hilang') {
+                    // Tampilkan section kronologi
+                    chronologySectionEl.classList.remove('d-none');
+                    // Wajib diisi
+                    chronologyInputEl.setAttribute('required', 'required');
+                } else {
+                    // Sembunyikan section kronologi
+                    chronologySectionEl.classList.add('d-none');
+                    // Tidak wajib diisi
+                    chronologyInputEl.removeAttribute('required');
+                    chronologyInputEl.value = ''; // Reset isinya
+                }
             });
         }
     });
+
+    function submitDemo() {
+        const form = document.getElementById('reportForm');
+        if(!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const reportModal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
+        reportModal.hide();
+
+        Swal.fire(
+            'Laporan Terkirim (Demo)', 
+            'UI Form berhasil dibuat! Integrasi backend untuk upload dan simpan segera menyusul.', 
+            'success'
+        );
+    }
 </script>
 </body>
 </html>

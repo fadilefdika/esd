@@ -31,63 +31,62 @@ class EntityController extends Controller
     public function preview($code) {
         $entity = Entity::with('items')->where('code', $code)->firstOrFail();
 
+        // Kelompokkan semua status per set_no
         $groupSets = [];
         foreach ($entity->items as $item) {
             $setNo = $item->pivot->set_no;
             if (!isset($groupSets[$setNo])) {
                 $groupSets[$setNo] = [];
             }
-            $groupSets[$setNo][] = strtoupper($item->pivot->status ?? '');
+            $groupSets[$setNo][] = strtolower($item->pivot->status ?? '');
         }
 
         $totalSetsOwned = count($groupSets);
-        $setsInLaundry = [];
-        $setsAvailable = [];
+        $setsInLaundry  = [];
+        $setsAvailable  = [];
+        $setsRusak      = [];
+        $setsHilang     = [];
 
         foreach ($groupSets as $setNo => $statuses) {
-            $inLaundry = false;
-            foreach ($statuses as $stat) {
-                if (in_array($stat, ['LAUNDRY', 'DIPROSES'])) {
-                    $inLaundry = true;
-                    break;
-                }
-            }
-            if ($inLaundry) {
+            // Tentukan kondisi dominan dari set ini
+            // Prioritas: hilang > rusak > laundry > tersedia
+            $hasHilang  = in_array('hilang', $statuses);
+            $hasRusak   = in_array('rusak', $statuses);
+            $hasLaundry = count(array_intersect($statuses, ['laundry', 'diproses'])) > 0;
+
+            if ($hasHilang) {
+                $setsHilang[] = $setNo;
+            } elseif ($hasRusak) {
+                $setsRusak[] = $setNo;
+            } elseif ($hasLaundry) {
                 $setsInLaundry[] = $setNo;
             } else {
                 $setsAvailable[] = $setNo;
             }
         }
 
-        $status = count($setsInLaundry) > 0 ? 'IN LAUNDRY' : 'AVAILABLE';
+        // Status global untuk header preview
+        if (count($setsHilang) > 0 && count($setsAvailable) === 0 && count($setsInLaundry) === 0 && count($setsRusak) === 0) {
+            $status = 'HILANG';
+        } elseif (count($setsRusak) > 0 && count($setsAvailable) === 0 && count($setsInLaundry) === 0) {
+            $status = 'RUSAK';
+        } elseif (count($setsInLaundry) > 0) {
+            $status = 'IN LAUNDRY';
+        } else {
+            $status = 'AVAILABLE';
+        }
 
         $histories = Transaction::with(['items', 'creator'])->where('entity_id', $entity->id)
-        ->latest()
-        ->get();
+            ->latest()
+            ->get();
 
-        return view('public.preview', compact('entity', 'status', 'histories', 'totalSetsOwned', 'setsInLaundry', 'setsAvailable'));
+        return view('public.preview', compact(
+            'entity', 'status', 'histories', 'totalSetsOwned',
+            'setsInLaundry', 'setsAvailable', 'setsRusak', 'setsHilang'
+        ));
     }
 
-    public function laundryForm($code)
-    {
-        $entity = Entity::where('code', $code)->with('items')->first();
 
-        if (!$entity) {
-            return redirect()->route('employee.dashboard')->with('error', 'Data ESD tidak ditemukan.');
-        }
-
-        // Cek apakah entity sedang di laundry (ada transaksi OPEN)
-        $isInLaundry = Transaction::where('entity_id', $entity->id)
-            ->where('transaction_type', 'Serah ke laundry')
-            ->where('transaction_status', 'OPEN')
-            ->exists();
-
-        if ($isInLaundry) {
-            return redirect()->route('employee.dashboard')->with('error', 'Seragam Anda sedang dalam proses laundry. Tidak bisa mengajukan laundry baru.');
-        }
-
-        return view('employee.laundry_form', compact('entity'));
-    }
 
     public function proxyAwork(Request $request)
     {
@@ -588,8 +587,8 @@ class EntityController extends Controller
     public function vendorAction($code)
     {
         $entity = Entity::with('items')->where('code', $code)->firstOrFail();
-        
-        // Ambil transaksi OPEN (sedang di laundry) untuk entity ini
+
+        // Cek apakah sudah ada transaksi OPEN (sedang di laundry)
         $activeTransaction = Transaction::where('entity_id', $entity->id)
             ->where('transaction_type', 'Serah ke laundry')
             ->where('transaction_status', 'OPEN')
@@ -597,28 +596,82 @@ class EntityController extends Controller
             ->latest()
             ->first();
 
-        $groupedSets = [];
-        $uniqueItems = [];
-        if (!$activeTransaction && $entity->items && $entity->items->count() > 0) {
-            foreach ($entity->items as $item) {
-                // Tampilkan item yang siap dicuci (AVAILABLE, AKTIF, Diterima, dll)
-                $status = strtoupper($item->pivot->status ?? '');
-                if (!in_array($status, ['LAUNDRY', 'DIPROSES'])) {
-                    $setNo = $item->pivot->set_no;
-                    if (!isset($groupedSets[$setNo])) {
-                        $groupedSets[$setNo] = [];
-                    }
-                    $groupedSets[$setNo][$item->item_name] = $item;
-                    
-                    if (!in_array($item->item_name, $uniqueItems)) {
-                        $uniqueItems[] = $item->item_name;
-                    }
+        // Kelompokkan item berdasarkan status
+        $availableSets = []; // Set yang siap dilaundry
+        $laundryItems  = []; // Item yang sudah di laundry
+        $scanResult    = 'already_in_laundry'; // Default: sudah di laundry
+
+        foreach ($entity->items as $item) {
+            $status = strtolower($item->pivot->status ?? '');
+            $setNo  = $item->pivot->set_no;
+
+            if (in_array($status, ['laundry', 'diproses'])) {
+                $laundryItems[] = $item;
+            } elseif (!in_array($status, ['rusak', 'hilang'])) {
+                // Status tersedia/diterima/aktif → bisa dilaundry
+                if (!isset($availableSets[$setNo])) {
+                    $availableSets[$setNo] = [];
                 }
+                $availableSets[$setNo][] = $item;
             }
-            ksort($groupedSets);
         }
 
-        return view('vendor.action', compact('entity', 'activeTransaction', 'groupedSets', 'uniqueItems'));
+        // Jika ada set yang tersedia → AUTO PROSES ke LAUNDRY
+        if (!empty($availableSets)) {
+            DB::beginTransaction();
+            try {
+                $dateCode = now()->format('Ymd');
+                $maxCode  = Transaction::where('transaction_code', 'LIKE', "TRX-SRH-{$dateCode}-%")
+                    ->lockForUpdate()->max('transaction_code');
+                $count = $maxCode ? ((int) substr($maxCode, -3)) + 1 : 1;
+                $transactionCode = "TRX-SRH-{$dateCode}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
+
+                $transaction = Transaction::create([
+                    'entity_id'              => $entity->id,
+                    'transaction_code'       => $transactionCode,
+                    'transaction_type'       => 'Serah ke laundry',
+                    'transaction_start_date' => now(),
+                    'transaction_status'     => 'OPEN',
+                    'creator_id'             => auth('vendor')->id() ?? 1,
+                ]);
+
+                // Catat semua item dari set yang tersedia & update statusnya ke LAUNDRY
+                foreach ($availableSets as $setNo => $items) {
+                    foreach ($items as $item) {
+                        DB::table('TRANSACTION_DETAIL_ITEM')->insert([
+                            'transaction_id' => $transaction->id,
+                            'item_id'        => $item->pivot->item_id,
+                            'set_no'         => $setNo,
+                            'creator_id'     => auth('vendor')->id() ?? 1,
+                            'created_at'     => now(),
+                            'updated_at'     => now(),
+                        ]);
+                    }
+
+                    // Update seluruh set ke LAUNDRY
+                    DB::table('ENTITY_DETAIL_ITEM')
+                        ->where('entity_id', $entity->id)
+                        ->where('set_no', $setNo)
+                        ->whereNotIn(DB::raw('LOWER(status)'), ['rusak', 'hilang'])
+                        ->update(['status' => 'LAUNDRY', 'updated_at' => now()]);
+                }
+
+                DB::commit();
+
+                $activeTransaction = $transaction->load('items');
+                $scanResult = 'processed'; // Baru saja diproses
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                $scanResult = 'error';
+                \Illuminate\Support\Facades\Log::error('vendorAction auto-process error: ' . $e->getMessage());
+            }
+        }
+
+        // Refresh items setelah update
+        $entity->load('items');
+
+        return view('vendor.action', compact('entity', 'activeTransaction', 'scanResult', 'availableSets'));
     }
 
     public function vendorUpdateStatus(Request $request, $id)
@@ -700,7 +753,57 @@ class EntityController extends Controller
             }
         }
 
+        // dd($sets);
+
         return view('employee.dashboard', compact('user', 'entity', 'sets', 'isInLaundry', 'activeTransaction'));
     }
-}
+    /**
+     * Employee mengkonfirmasi bahwa laundry sudah diterima kembali.
+     */
+    public function employeeConfirmLaundryReceived()
+    {
+        $user   = auth('web')->user();
+        $entity = \App\Models\Entity::where('npk', $user->npk)->first();
 
+        if (!$entity) {
+            return back()->with('error', 'Data ESD Anda tidak ditemukan.');
+        }
+
+        $activeTransaction = Transaction::where('entity_id', $entity->id)
+            ->where('transaction_type', 'Serah ke laundry')
+            ->where('transaction_status', 'OPEN')
+            ->latest()
+            ->first();
+
+        if (!$activeTransaction) {
+            return back()->with('error', 'Tidak ada transaksi laundry yang aktif.');
+        }
+
+        DB::beginTransaction();
+        try {
+            $activeTransaction->update([
+                'transaction_status'   => 'FINISHED',
+                'transaction_end_date' => now(),
+            ]);
+
+            $pivotItems = DB::table('TRANSACTION_DETAIL_ITEM')
+                ->where('transaction_id', $activeTransaction->id)
+                ->get();
+
+            foreach ($pivotItems as $p) {
+                DB::table('ENTITY_DETAIL_ITEM')
+                    ->where('entity_id', $entity->id)
+                    ->where('item_id', $p->item_id)
+                    ->where('set_no', $p->set_no)
+                    ->update(['status' => 'diterima', 'updated_at' => now()]);
+            }
+
+            DB::commit();
+            return back()->with('success', 'Laundry berhasil dikonfirmasi diterima. Status seragam kembali tersedia.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal konfirmasi: ' + $e->getMessage());
+        }
+    }
+}
