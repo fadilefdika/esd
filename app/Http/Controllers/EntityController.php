@@ -572,14 +572,14 @@ class EntityController extends Controller
     // --- VENDOR LAUNDRY METHODS ---
     public function vendorDashboard()
     {
-        // Query semua transaksi "Serah ke laundry" (baik OPEN maupun FINISHED terbaru)
+        // Query semua transaksi "Serah ke laundry" (baik OPEN, READY maupun FINISHED terbaru)
         $transactions = Transaction::with('entity')
             ->where('transaction_type', 'Serah ke laundry')
             ->latest()
             ->get();
 
         $openCount = $transactions->where('transaction_status', 'OPEN')->count();
-        $finishedCount = $transactions->where('transaction_status', 'FINISHED')->count();
+        $finishedCount = $transactions->whereIn('transaction_status', ['FINISHED', 'READY'])->count();
 
         return view('vendor.dashboard', compact('transactions', 'openCount', 'finishedCount'));
     }
@@ -587,97 +587,75 @@ class EntityController extends Controller
     public function vendorAction($code)
     {
         $entity = Entity::with('items')->where('code', $code)->firstOrFail();
-
-        // Cek apakah sudah ada transaksi OPEN (sedang di laundry)
+        
+        // Ambil transaksi OPEN/READY (sedang di laundry) untuk entity ini
         $activeTransaction = Transaction::where('entity_id', $entity->id)
             ->where('transaction_type', 'Serah ke laundry')
-            ->where('transaction_status', 'OPEN')
+            ->whereIn('transaction_status', ['OPEN', 'READY'])
             ->with('items')
             ->latest()
             ->first();
 
-        // Kelompokkan item berdasarkan status
-        $availableSets = []; // Set yang siap dilaundry
-        $laundryItems  = []; // Item yang sudah di laundry
-        $scanResult    = 'already_in_laundry'; // Default: sudah di laundry
+        $allSets = [];
+        $totalAvailableSets = 0;
+        $totalSetsCount = 0;
 
-        foreach ($entity->items as $item) {
-            $status = strtolower($item->pivot->status ?? '');
-            $setNo  = $item->pivot->set_no;
-
-            if (in_array($status, ['laundry', 'diproses'])) {
-                $laundryItems[] = $item;
-            } elseif (!in_array($status, ['rusak', 'hilang'])) {
-                // Status tersedia/diterima/aktif → bisa dilaundry
-                if (!isset($availableSets[$setNo])) {
-                    $availableSets[$setNo] = [];
+        if (!$activeTransaction && $entity->items && $entity->items->count() > 0) {
+            $tempGroup = [];
+            foreach ($entity->items as $item) {
+                $setNo = $item->pivot->set_no;
+                if (!isset($tempGroup[$setNo])) {
+                    $tempGroup[$setNo] = ['items' => [], 'statuses' => []];
                 }
-                $availableSets[$setNo][] = $item;
+                $tempGroup[$setNo]['items'][$item->item_name] = $item;
+                $tempGroup[$setNo]['statuses'][] = strtolower($item->pivot->status ?? '');
             }
-        }
 
-        // Jika ada set yang tersedia → AUTO PROSES ke LAUNDRY
-        if (!empty($availableSets)) {
-            DB::beginTransaction();
-            try {
-                $dateCode = now()->format('Ymd');
-                $maxCode  = Transaction::where('transaction_code', 'LIKE', "TRX-SRH-{$dateCode}-%")
-                    ->lockForUpdate()->max('transaction_code');
-                $count = $maxCode ? ((int) substr($maxCode, -3)) + 1 : 1;
-                $transactionCode = "TRX-SRH-{$dateCode}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
+            $totalSetsCount = count($tempGroup);
 
-                $transaction = Transaction::create([
-                    'entity_id'              => $entity->id,
-                    'transaction_code'       => $transactionCode,
-                    'transaction_type'       => 'Serah ke laundry',
-                    'transaction_start_date' => now(),
-                    'transaction_status'     => 'OPEN',
-                    'creator_id'             => auth('vendor')->id() ?? 1,
-                ]);
+            foreach ($tempGroup as $setNo => $data) {
+                $statuses = $data['statuses'];
+                $hasHilang = in_array('hilang', $statuses);
+                $hasRusak = in_array('rusak', $statuses);
+                $hasLaundry = count(array_intersect($statuses, ['laundry', 'diproses'])) > 0;
 
-                // Catat semua item dari set yang tersedia & update statusnya ke LAUNDRY
-                foreach ($availableSets as $setNo => $items) {
-                    foreach ($items as $item) {
-                        DB::table('TRANSACTION_DETAIL_ITEM')->insert([
-                            'transaction_id' => $transaction->id,
-                            'item_id'        => $item->pivot->item_id,
-                            'set_no'         => $setNo,
-                            'creator_id'     => auth('vendor')->id() ?? 1,
-                            'created_at'     => now(),
-                            'updated_at'     => now(),
-                        ]);
-                    }
-
-                    // Update seluruh set ke LAUNDRY
-                    DB::table('ENTITY_DETAIL_ITEM')
-                        ->where('entity_id', $entity->id)
-                        ->where('set_no', $setNo)
-                        ->whereNotIn(DB::raw('LOWER(status)'), ['rusak', 'hilang'])
-                        ->update(['status' => 'LAUNDRY', 'updated_at' => now()]);
+                if ($hasHilang) {
+                    $setStatus = 'Hilang';
+                    $isAvailable = false;
+                } elseif ($hasRusak) {
+                    $setStatus = 'Rusak';
+                    $isAvailable = false;
+                } elseif ($hasLaundry) {
+                    $setStatus = 'Sedang Laundry';
+                    $isAvailable = false;
+                } else {
+                    $setStatus = 'Tersedia';
+                    $isAvailable = true;
+                    $totalAvailableSets++;
                 }
 
-                DB::commit();
-
-                $activeTransaction = $transaction->load('items');
-                $scanResult = 'processed'; // Baru saja diproses
-
-            } catch (\Exception $e) {
-                DB::rollBack();
-                $scanResult = 'error';
-                \Illuminate\Support\Facades\Log::error('vendorAction auto-process error: ' . $e->getMessage());
+                $allSets[$setNo] = [
+                    'items' => $data['items'],
+                    'status' => $setStatus,
+                    'is_available' => $isAvailable
+                ];
             }
+            ksort($allSets);
         }
 
-        // Refresh items setelah update
-        $entity->load('items');
+        // Logic Limit Maksimal Laundry: 
+        // 1. Jika cuma punya 1 set, bisa di-laundry.
+        // 2. Jika punya > 1 set dan yang tersedia > 1, maka harus menyisakan 1 set. (Max = available - 1)
+        // 3. Jika punya > 1 set tapi yang tersedia cuma 1 (krn yg lain rusak/hilang), maka set ke-1 itu BOLEH dilaundry (Max = 1).
+        $maxSelectableSets = ($totalSetsCount > 1 && $totalAvailableSets > 1) ? ($totalAvailableSets - 1) : $totalAvailableSets;
 
-        return view('vendor.action', compact('entity', 'activeTransaction', 'scanResult', 'availableSets'));
+        return view('vendor.action', compact('entity', 'activeTransaction', 'allSets', 'maxSelectableSets'));
     }
 
     public function vendorUpdateStatus(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|in:OPEN,FINISHED',
+            'status' => 'required|in:OPEN,FINISHED,READY',
         ]);
 
         try {
@@ -688,14 +666,16 @@ class EntityController extends Controller
 
             $transaction->update([
                 'transaction_status' => $newStatus,
-                'transaction_end_date' => ($newStatus === 'FINISHED') ? now() : null,
+                'transaction_end_date' => in_array($newStatus, ['FINISHED', 'READY']) ? now() : null,
             ]);
 
             // Sinkronisasi status di ENTITY_DETAIL_ITEM secara presisi
             $pivotItems = DB::table('TRANSACTION_DETAIL_ITEM')->where('transaction_id', $id)->get();
             
             if ($pivotItems->count() > 0) {
-                $pivotStatus = ($newStatus === 'FINISHED') ? 'diterima' : 'LAUNDRY';
+                $pivotStatus = 'LAUNDRY';
+                if ($newStatus === 'FINISHED') $pivotStatus = 'diterima';
+                if ($newStatus === 'READY') $pivotStatus = 'siap_diambil';
                 
                 foreach($pivotItems as $p) {
                     DB::table('ENTITY_DETAIL_ITEM')
@@ -730,10 +710,10 @@ class EntityController extends Controller
         $activeTransaction = null;
 
         if ($entity) {
-            // Cek transaksi OPEN (masih diproses vendor)
+            // Cek transaksi OPEN/READY (masih diproses / nunggu diambil)
             $activeTransaction = Transaction::where('entity_id', $entity->id)
                 ->where('transaction_type', 'Serah ke laundry')
-                ->where('transaction_status', 'OPEN')
+                ->whereIn('transaction_status', ['OPEN', 'READY'])
                 ->latest()
                 ->first();
 
@@ -771,7 +751,7 @@ class EntityController extends Controller
 
         $activeTransaction = Transaction::where('entity_id', $entity->id)
             ->where('transaction_type', 'Serah ke laundry')
-            ->where('transaction_status', 'OPEN')
+            ->whereIn('transaction_status', ['OPEN', 'READY'])
             ->latest()
             ->first();
 

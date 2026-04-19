@@ -311,23 +311,28 @@
                                         @endif
                                     </div>
                                     <div class="text-muted" style="font-size: 0.7rem;">
-                                        {{ $log->created_at->format('d M Y, H:i') }} - 
-                                        <span class="text-primary">{{ $log->creator->name ?? $log->creator->fullname ?? 'System' }}</span>
+                                        {{ $log->created_at->format('d M Y, H:i') }}  
+                                        {{-- <span class="text-primary">{{ $log->creator->name ?? $log->creator->fullname ?? 'System' }}</span> --}}
                                     </div>
                                     @if($log->items && $log->items->count() > 0)
-                                        <div class="mt-1" style="font-size: 0.7rem; color: #475569;">
+                                        <div class="mt-2" style="font-size: 0.72rem; color: #475569;">
                                             @php
                                                 $logSets = [];
                                                 foreach($log->items as $item) {
                                                     $setNo = $item->pivot->set_no ?? $item->pivot->item_id; // fallback if set_no not found
-                                                    $logSets[$setNo] = true;
+                                                    if(!isset($logSets[$setNo])) $logSets[$setNo] = [];
+                                                    $logSets[$setNo][] = $item->item_name;
                                                 }
-                                                $logSetsKeys = array_keys($logSets);
-                                                sort($logSetsKeys);
-                                                $formattedSets = array_map(function($s) { return "Set $s"; }, $logSetsKeys);
+                                                ksort($logSets);
                                             @endphp
-                                            <i class="bi bi-tag-fill me-1" style="color: #64748b;"></i>
-                                            <strong>{{ implode(', ', $formattedSets) }}</strong>
+                                            
+                                            @foreach($logSets as $setNo => $itemNames)
+                                                <div class="mb-1 p-1 px-2 rounded" style="background-color: #f8fafc; border: 1px solid #f1f5f9;">
+                                                    <i class="bi bi-box-seam text-secondary me-1"></i>
+                                                    <strong class="text-dark">Set {{ $setNo }}:</strong> 
+                                                    <span class="text-muted">{{ implode(', ', $itemNames) }}</span>
+                                                </div>
+                                            @endforeach
                                         </div>
                                     @endif
                                 </div>
@@ -345,14 +350,20 @@
             <!-- Authenticaton / Check Auth  -->
             <div class="mt-4 border-top pt-3 text-center">
                 @if(Auth::guard('vendor')->check())
-                    <a href="{{ route('vendor.action', $entity->code) }}" class="btn btn-submit" style="background-color: #059669;">
-                        <i class="bi bi-basket me-2"></i> Proses Transaksi Laundry (Vendor)
-                    </a>
+                    @if(count($setsAvailable) > 0)
+                        <a href="{{ route('vendor.action', $entity->code) }}" class="btn btn-submit" style="background-color: #059669;">
+                            <i class="bi bi-basket me-2"></i> Proses Transaksi Laundry (Vendor)
+                        </a>
+                    @else
+                        <div class="alert alert-warning p-2 mb-0 border-0" style="font-size: 0.8rem; border-radius: 8px; background-color: #fffbeb; color: #b45309;">
+                            <i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i> Tidak ada Set ESD yang tersedia (Ready) untuk diproses.
+                        </div>
+                    @endif
                 @elseif(Auth::guard('web')->check() || Auth::guard('admin')->check())
                     <p class="text-muted" style="font-size: 0.8rem;">Hanya staf Vendor Laundry yang dapat memproses transaksi seragam.</p>
                 @else
                     <p class="text-muted mb-2" style="font-size: 0.75rem;">Review ini hanya untuk tracking. Vendor harap login untuk memproses.</p>
-                    <a href="{{ route('login') }}" class="btn btn-outline-primary w-100" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;">
+                    <a href="{{ route('login', ['from_preview' => $entity->code]) }}" class="btn btn-outline-primary w-100" style="border-radius: 8px; font-size: 0.85rem; font-weight: 600;">
                         <i class="bi bi-box-arrow-in-right me-2"></i> Login Aplikasi
                     </a>
                 @endif

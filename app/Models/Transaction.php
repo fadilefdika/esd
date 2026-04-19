@@ -33,6 +33,8 @@ class Transaction extends Model
 
     public function items()
     {
-        return $this->belongsToMany(Item::class, 'TRANSACTION_DETAIL_ITEM', 'transaction_id', 'item_id');
+        return $this->belongsToMany(Item::class, 'TRANSACTION_DETAIL_ITEM', 'transaction_id', 'item_id')
+                    ->withPivot('set_no', 'creator_id')
+                    ->withTimestamps();
     }
 }

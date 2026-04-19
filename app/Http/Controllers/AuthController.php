@@ -12,8 +12,12 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function showLogin()
+    public function showLogin(Request $request)
     {
+        if ($request->has('from_preview')) {
+            session(['vendor_preview_code' => $request->query('from_preview')]);
+        }
+
         $publicKey = file_get_contents(storage_path('app/keys/public.pem'));
         return view('auth.login', compact('publicKey'));
     }
@@ -70,6 +74,8 @@ class AuthController extends Controller
                 Auth::guard('web')->login($user);
                 DB::commit();
 
+                session()->forget('vendor_preview_code');
+
                 // Redirect ke URL yang dituju (intended) sebelum dipaksa login, atau fallback ke dashboard
                 return redirect()->intended(route('employee.dashboard'));
             } elseif ($role === 'vendor') {
@@ -89,6 +95,11 @@ class AuthController extends Controller
                 Auth::guard('vendor')->login($vendor);
                 DB::commit();
 
+                if (session()->has('vendor_preview_code')) {
+                    $code = session()->pull('vendor_preview_code');
+                    return redirect()->route('vendor.action', $code);
+                }
+
                 return redirect()->intended(route('vendor.dashboard'));
             } else {
                 // Admin Login Logic
@@ -101,6 +112,8 @@ class AuthController extends Controller
                 Auth::guard('admin')->login($user);
                 DB::commit();
                 
+                session()->forget('vendor_preview_code');
+
                 return redirect()->route('admin.entities.index');
             }
 
@@ -114,18 +127,22 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         Log::info('Logout initiated', [
-            'admin_id' => session('admin'),
-            'user_id' => Auth::id()
+            'admin_id' => Auth::guard('admin')->id(),
+            'employee_id' => Auth::guard('web')->id(),
+            'vendor_id' => Auth::guard('vendor')->id()
         ]);
 
+        // Logout dari semua role (guard)
         Auth::guard('admin')->logout();
         Auth::guard('web')->logout();
         Auth::guard('vendor')->logout();
 
+        // invalidate() akan membersihkan/flush secara menyeluruh 
+        // SEMUA session browser (role, id, data yg tersisa), dan me-regenerate Session ID baru.
         $request->session()->invalidate();
-        $request->session()->regenerateToken(); // for CSRF protection
-        $request->session()->forget('admin');
-        $request->session()->forget('vendor');
+        
+        // Memastikan regenerasi token CSRF agar sesi lama benar-benar mati dan aman 
+        $request->session()->regenerateToken(); 
 
         return redirect()->route('login');
     }

@@ -56,8 +56,7 @@ class ReportIncidentController extends Controller
             $evidenceJson = json_encode($paths);
             $entityId     = $entity->id; // Ambil dari entity yang sudah ditemukan
 
-            // Kumpulkan set_no yang terdampak (bisa ada beberapa item dari set berbeda)
-            $affectedSetNos = [];
+            // Update data akan dilakukan per item yang dipilih
 
             foreach ($selectedItems as $item) {
                 $itemId = $item['id'];
@@ -75,17 +74,10 @@ class ReportIncidentController extends Controller
                     'creator_id'    => $user->id,
                 ]);
 
-                // Tandai set_no ini sudah perlu diupdate seluruhnya
-                if (!in_array($setNo, $affectedSetNos)) {
-                    $affectedSetNos[] = $setNo;
-                }
-            }
-
-            // 6. Update SELURUH item dalam setiap set yang terdampak
-            //    Bukan hanya item yang dipilih, tapi semua baris dengan set_no yang sama
-            foreach ($affectedSetNos as $setNo) {
+                // 6. Update status HANYA untuk item yang dilaporkan saja
                 DB::table('ENTITY_DETAIL_ITEM')
                     ->where('entity_id', $entityId)
+                    ->where('item_id', $itemId)
                     ->where('set_no', $setNo)
                     ->update([
                         'status'     => $request->report_type, // 'rusak' atau 'hilang'

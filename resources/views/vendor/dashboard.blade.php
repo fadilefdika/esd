@@ -44,9 +44,12 @@
                 <li><h6 class="dropdown-header text-dark fw-bold">Vendor Menu</h6></li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
-                    <a class="dropdown-item text-danger d-flex align-items-center" href="/login">
-                        <i class="bi bi-box-arrow-right me-2"></i> Keluar (Logout)
-                    </a>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="dropdown-item text-danger d-flex align-items-center bg-transparent border-0 w-100 text-start">
+                            <i class="bi bi-box-arrow-right me-2"></i> Keluar (Logout)
+                        </button>
+                    </form>
                 </li>
             </ul>
         </div>
@@ -78,7 +81,8 @@
             <select id="filterStatus" class="form-select form-select-sm border border-light bg-white shadow-sm fw-bold text-dark flex-shrink-0" style="font-size: 0.75rem; width: auto; border-radius: 8px;">
                 <option value="all">Semua Status</option>
                 <option value="OPEN">Dalam Proses</option>
-                <option value="FINISHED">Selesai</option>
+                <option value="READY">Siap Diambil</option>
+                <option value="FINISHED">Selesai (Sudah Diambil)</option>
             </select>
             
             <select id="limitSelect" class="form-select form-select-sm border border-light bg-white shadow-sm fw-bold text-primary flex-shrink-0" style="font-size: 0.75rem; width: auto; border-radius: 8px;">
@@ -98,9 +102,10 @@
                 @php
                     $entity = $trx->entity;
                     $isOpen = $trx->transaction_status === 'OPEN';
-                    $statusLabel = $isOpen ? 'Dalam Proses' : 'Selesai';
-                    $statusColor = $isOpen ? 'warning' : 'success';
-                    $iconClass = $isOpen ? 'bi-arrow-repeat' : 'bi-check2-all';
+                    $isReady = $trx->transaction_status === 'READY';
+                    $statusLabel = $isOpen ? 'Dalam Proses' : ($isReady ? 'Siap Diambil' : 'Selesai');
+                    $statusColor = $isOpen ? 'warning' : ($isReady ? 'info' : 'success');
+                    $iconClass = $isOpen ? 'bi-arrow-repeat' : ($isReady ? 'bi-box-seam' : 'bi-check2-all');
                     $timeLabel = $trx->created_at ? $trx->created_at->diffForHumans() : '-';
                 @endphp
                 <a href="{{ route('vendor.action', $entity->code ?? '#') }}" 

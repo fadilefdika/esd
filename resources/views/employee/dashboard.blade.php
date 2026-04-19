@@ -64,25 +64,35 @@
 <div class="container px-3">
 
     @if($entity)
+        {{-- Header: Paket & Badge --}}
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="fw-bold text-dark mb-0">Paket Saya: {{ $entity->package ?? 'Standar' }}</h6>
-            <span class="badge bg-primary px-2 py-1">{{ $entity->code }}</span>
+            <h6 class="fw-bold text-dark mb-0" style="font-size: 0.9rem;">Paket Saya: {{ $entity->package ?? 'Standar' }}</h6>
+            <span class="badge bg-primary px-2 py-1" style="font-size: 0.75rem;">{{ $entity->code }}</span>
         </div>
 
         {{-- Banner: Sedang di Laundry --}}
         @if($isInLaundry)
-            <div class="alert border-0 mb-3 px-3 py-3" style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 12px;">
-                <div class="d-flex align-items-center mb-2">
-                    <span class="spinner-grow spinner-grow-sm text-warning me-2" role="status"></span>
-                    <span class="fw-semibold text-dark" style="font-size: 0.85rem;">Sebagian atau seluruh seragam Anda sedang dalam proses laundry.</span>
+            <div class="alert border-0 mb-3 px-3 py-3 shadow-sm" style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 14px;">
+                <div class="d-flex align-items-start mb-2">
+                    <span class="spinner-grow spinner-grow-sm text-warning me-2 mt-1" role="status"></span>
+                    @if($activeTransaction && $activeTransaction->transaction_status === 'READY')
+                        <span class="fw-semibold text-dark" style="font-size: 0.85rem; line-height: 1.3;">Laundry Anda sudah selesai dicuci! Silakan ambil.</span>
+                    @else
+                        <span class="fw-semibold text-dark" style="font-size: 0.85rem; line-height: 1.3;">Sebagian atau seluruh seragam Anda sedang dalam proses laundry.</span>
+                    @endif
                 </div>
-                <p class="mb-2 text-muted" style="font-size: 0.78rem;">Setelah seragam diterima kembali, konfirmasikan di sini agar status seragam kembali tersedia.</p>
-                <form action="{{ route('employee.laundry.confirm') }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn btn-success btn-sm w-100 fw-semibold" style="border-radius: 8px; font-size: 0.82rem;">
-                        <i class="bi bi-check2-circle me-1"></i> Saya Sudah Terima Laundry
-                    </button>
-                </form>
+
+                @if($activeTransaction && $activeTransaction->transaction_status === 'OPEN')
+                    <p class="mb-0 text-muted mt-1" style="font-size: 0.75rem;">Harap tunggu hingga Vendor menyelesaikan proses penyucian. Anda hanya bisa konfirmasi apabila statusnya siap diambil.</p>
+                @else
+                    <p class="mb-3 text-muted" style="font-size: 0.75rem;">Setelah seragam diterima kembali, konfirmasikan di bawah agar status kembali tersedia.</p>
+                    <form action="{{ route('employee.laundry.confirm') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn btn-success btn-sm w-100 fw-bold py-2" style="border-radius: 10px; font-size: 0.8rem;">
+                            <i class="bi bi-check2-circle me-1"></i> Saya Sudah Terima Laundry
+                        </button>
+                    </form>
+                @endif
             </div>
         @endif
 
@@ -112,47 +122,70 @@
                     }
                 }
             @endphp
-            <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px; border-left: 4px solid {{ $borderColor }} !important;">
+            
+            <div class="card border-0 shadow-sm mb-3" style="border-radius: 14px; border-left: 5px solid {{ $borderColor }} !important;">
                 <div class="card-body p-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="fw-bold mb-0" style="font-size: 0.95rem;">Set {{ $setNo }}</h6>
-                        <span class="badge {{ $badgeClass }}">{{ $setStatus }}</span>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0" style="font-size: 0.9rem;">Set {{ $setNo }}</h6>
+                        <span class="badge {{ $badgeClass }}" style="font-size: 0.7rem;">{{ $setStatus }}</span>
                     </div>
                     
-                    <div class="text-muted d-flex flex-wrap gap-1" style="font-size: 0.8rem;">
+                    {{-- Grid Item: Diubah ke d-grid untuk mobile agar lebih rapi --}}
+                    <div class="d-flex flex-wrap gap-2">
                         @foreach($items as $i)
-                            <span class="badge bg-light text-dark border">{{ $i->item_name }}</span>
+                            @php
+                                $itemStatus = strtolower($i->pivot->status ?? '');
+                                $isReported = in_array($itemStatus, ['hilang', 'rusak']);
+                            @endphp
+                            
+                            @if($isReported)
+                                <div class="badge {{ $itemStatus === 'hilang' ? 'bg-dark' : 'bg-danger' }} text-start p-2 border-0 shadow-sm w-100" style="border-radius: 10px; max-width: 100%;">
+                                    <div class="fw-bold mb-1" style="font-size: 0.8rem;">
+                                        <i class="bi {{ $itemStatus === 'hilang' ? 'bi-slash-circle' : 'bi-exclamation-triangle' }} me-1"></i>{{ $i->item_name }}
+                                    </div>
+                                    <div class="fw-normal opacity-75" style="font-size: 0.65rem; line-height: 1.2;">
+                                        Dilaporkan {{ ucfirst($itemStatus) }} pada:<br>
+                                        {{ $i->pivot->updated_at ? \Carbon\Carbon::parse($i->pivot->updated_at)->format('d M Y, H:i') : '-' }} WIB
+                                    </div>
+                                </div>
+                            @else
+                                <span class="badge bg-light text-dark border d-inline-flex align-items-center px-2 py-2" style="border-radius: 8px; font-size: 0.75rem; font-weight: 500;">
+                                    {{ $i->item_name }}
+                                </span>
+                            @endif
                         @endforeach
                     </div>
                 </div>
             </div>
         @empty
-            <div class="alert alert-warning border-0" style="border-radius: 12px;">
+            <div class="alert alert-warning border-0 text-center py-4" style="border-radius: 14px; font-size: 0.85rem;">
+                <i class="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
                 Belum ada item ESD yang ditugaskan ke Anda.
             </div>
         @endforelse
 
-        <div class="d-flex gap-2 mt-3">
-            <button type="button" class="btn btn-outline-danger w-50 py-2 shadow-sm" style="border-radius: 12px; font-weight: 600; font-size: 0.85rem;" data-bs-toggle="modal" data-bs-target="#reportModal">
-                <i class="bi bi-exclamation-triangle-fill me-1"></i> Lapor Rusak/Hilang
+        {{-- Tombol Utama: Dibuat Full Width untuk Mobile agar mudah dijangkau --}}
+        <div class="mt-4 mb-5">
+            <button type="button" class="btn btn-outline-danger w-100 py-3 shadow-sm d-flex align-items-center justify-content-center" style="border-radius: 14px; font-weight: 700; font-size: 0.9rem;" data-bs-toggle="modal" data-bs-target="#reportModal">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> Lapor Kendala (Rusak/Hilang)
             </button>
         </div>
 
     @else
-        <div class="card border-0 shadow-sm" style="border-radius: 16px;">
-            <div class="card-body text-center py-5 px-3">
+        {{-- Empty State --}}
+        <div class="card border-0 shadow-sm" style="border-radius: 20px;">
+            <div class="card-body text-center py-5 px-4">
                 <div class="mb-4 text-danger">
-                    <i class="bi bi-exclamation-triangle-fill" style="font-size: 4rem; opacity: 0.9;"></i>
+                    <i class="bi bi-person-x-fill" style="font-size: 3.5rem; opacity: 0.8;"></i>
                 </div>
-                <h5 class="fw-bold text-dark mb-3">Data ESD Tidak Ditemukan</h5>
-                <p class="text-muted mb-0" style="font-size: 0.9rem;">
-                    Sistem tidak dapat menemukan alokasi pakaian ESD yang terhubung dengan NPK Anda. Silakan hubungi Admin.
+                <h5 class="fw-bold text-dark mb-2">Data Tidak Ditemukan</h5>
+                <p class="text-muted small mb-0">
+                    Sistem tidak menemukan alokasi pakaian ESD untuk NPK Anda. Silakan hubungi bagian Admin atau Laundry.
                 </p>
             </div>
         </div>
     @endif
 </div>
-
 {{-- Cukup panggil sub-folder setelah folder components --}}
 <x-forms.form-report-damage-lost :sets="$sets" />
 

@@ -59,19 +59,29 @@
                                             
                                             <div class="row g-2">
                                                 @foreach($items as $i)
+                                                    @php
+                                                        $isReported = isset($i->pivot->status) && in_array(strtolower($i->pivot->status), ['hilang', 'rusak']);
+                                                    @endphp
                                                     <div class="col-md-6 col-lg-4">
-                                                        <div class="item-checkpoint p-2 border rounded-3 bg-white hover-shadow-sm transition-all">
-                                                            <div class="form-check d-flex align-items-center mb-0">
-                                                                <input class="form-check-input me-2 item-checkbox" 
+                                                        <div class="item-checkpoint p-2 border rounded-3 {{ $isReported ? 'bg-light opacity-75' : 'bg-white hover-shadow-sm transition-all' }}">
+                                                            <div class="form-check d-flex align-items-start mb-0">
+                                                                <input class="form-check-input me-2 item-checkbox mt-1" 
                                                                     type="checkbox" 
                                                                     name="selected_items[]" 
                                                                     value="{{ $i->id }}" 
                                                                     id="item_{{ $i->id }}_{{ $setNo }}"
                                                                     data-set="{{ $setNo }}"
-                                                                    style="width: 1.2rem; height: 1.2rem; cursor: pointer;">
-                                                                <label class="form-check-label w-100" for="item_{{ $i->id }}_{{ $setNo }}" style="cursor: pointer;">
-                                                                    <div class="fw-bold text-dark" style="font-size: 0.85rem;">{{ $i->item_name }}</div>
+                                                                    {{ $isReported ? 'disabled' : '' }}
+                                                                    style="width: 1.2rem; height: 1.2rem; cursor: {{ $isReported ? 'not-allowed' : 'pointer' }};">
+                                                                <label class="form-check-label w-100" for="item_{{ $i->id }}_{{ $setNo }}" style="cursor: {{ $isReported ? 'not-allowed' : 'pointer' }};">
+                                                                    <div class="fw-bold {{ $isReported ? 'text-secondary' : 'text-dark' }}" style="font-size: 0.85rem;">{{ $i->item_name }}</div>
                                                                     <div class="text-muted" style="font-size: 0.75rem;">Size: {{ $i->pivot->size ?? '-' }}</div>
+                                                                    @if($isReported)
+                                                                        <div class="text-danger mt-1 fw-medium" style="font-size: 0.7rem; line-height: 1.2;">
+                                                                            <i class="bi bi-info-circle me-1"></i>Dilaporkan {{ ucfirst($i->pivot->status) }}<br>
+                                                                            pada {{ $i->pivot->updated_at ? \Carbon\Carbon::parse($i->pivot->updated_at)->format('d M Y, H:i') : '-' }}
+                                                                        </div>
+                                                                    @endif
                                                                 </label>
                                                             </div>
                                                         </div>
