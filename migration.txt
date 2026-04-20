@@ -456,3 +456,28 @@ CREATE TABLE [dbo].[REPORT_INCIDENTS] (
     CONSTRAINT [CK_Report_Type] CHECK ([report_type] IN ('rusak', 'hilang')),
     CONSTRAINT [CK_Status_Report] CHECK ([status_report] IN ('pending', 'processed', 'replaced'))
 );
+
+// update 20 april Fadil 
+-- 1. Izinkan penginputan ID secara manual pada kolom IDENTITY
+SET IDENTITY_INSERT [esd].[dbo].[vendors] ON;
+
+-- 2. Jalankan perintah INSERT
+INSERT INTO [esd].[dbo].[vendors] (
+    [id], 
+    [fullname], 
+    [username], 
+    [password_hash], 
+    [created_at], 
+    [updated_at]
+)
+VALUES (
+    1, 
+    'Admin Laundry Vendor', 
+    'vendor_laundry', 
+    '$2y$12$ktk2AkZJrGl2qSDiGlkdYee1mNELO9.oXLkgWe/qVJ0Eeqi9xD9VG', 
+    '2026-04-09 10:44:31.633', 
+    '2026-04-12 13:52:08.863'
+);
+
+-- 3. Matikan kembali fitur penginputan ID manual agar auto-increment normal kembali
+SET IDENTITY_INSERT [esd].[dbo].[vendors] OFF;

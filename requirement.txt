@@ -35,3 +35,8 @@ Date Lock: Input tanggal pada form transaksi akan di-lock (otomatis mengambil ta
 Evidence System: Laporan kerusakan atau kehilangan wajib menyertakan Deskripsi Detail dan Upload Bukti Foto.
 Dashboard Admin: Admin dapat memantau akumulasi kerugian atau tren kerusakan melalui menu Reporting baru.
 
+19 April
+
+Kondisi A: Jika karyawan total hanya punya 1 set, limit cuci = 1 set.
+Kondisi B: Jika karyawan punya 3 set dan tiganya Tersedia, limit cuci = 2 set (selalu menyisakan minimum 1 set).
+Kondisi C: Jika karyawan total punya 2 set, tapi 1 statusnya Tersedia dan 1 lagi statusnya Rusak/Hilang, maka limit cucinya = 1 set (set yang ke-1 itu tetap boleh dilaundry karena tidak ada lagi set aktif selain itu).
