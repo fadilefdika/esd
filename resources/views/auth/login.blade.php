@@ -230,8 +230,7 @@
 
                 <form id="login-form" method="POST" action="{{ route('login') }}">
                     @csrf
-                    <input type="hidden" name="encrypted_username" id="encrypted_username">
-                    <input type="hidden" name="encrypted_password" id="encrypted_password">
+                    <input type="hidden" name="role" id="hidden_role" value="admin">
                
                     <!-- Role Selection -->
                     <label class="form-label mb-2">Login Sebagai</label>
@@ -257,13 +256,13 @@
 
                     <div class="input-group-custom">
                         <label for="username" id="username-label" class="form-label">Username</label>
-                        <input type="text" id="username" class="form-control" required placeholder="Masukkan Username Admin">
+                        <input type="text" name="username" id="username" class="form-control" required placeholder="Masukkan Username Admin">
                     </div>
 
                     <div class="input-group-custom">
                         <label for="password" class="form-label">Password</label>
                         <div class="position-relative">
-                            <input type="password" id="password" class="form-control" required placeholder="••••••••" style="padding-right: 40px;">
+                            <input type="password" name="password" id="password" class="form-control" required placeholder="••••••••" style="padding-right: 40px;">
                             <span id="togglePassword" class="position-absolute end-0 top-50 translate-middle-y me-3" style="cursor: pointer; z-index: 10;">
                                 <i class="bi bi-eye" id="eyeIcon"></i>
                             </span>
@@ -283,7 +282,6 @@
         </div>
     </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jsencrypt@3.0.0-rc.1/bin/jsencrypt.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // === 1. Logika Lockout Timer ===
@@ -320,8 +318,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (togglePassword && passwordInput) {
         togglePassword.addEventListener('click', function () {
-            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-            password.setAttribute('type', type);
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
             
             // Toggle ikon mata versi Bootstrap
             eyeIcon.classList.toggle('bi-eye');
@@ -334,6 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
         radio.addEventListener('change', function() {
             const usernameInput = document.getElementById('username');
             const usernameLabel = document.getElementById('username-label');
+            const hiddenRoleInput = document.getElementById('hidden_role');
             
             if(!usernameInput || !usernameLabel) return;
 
@@ -347,53 +346,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 usernameInput.type = 'text';
             }
             usernameInput.value = '';
+            if(hiddenRoleInput) hiddenRoleInput.value = this.value;
         });
     });
 
-    // === 4. Form Submission & RSA Encryption ===
+    // === 4. Form Submission Loading Effect ===
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
         loginForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            
             const btn = this.querySelector('.btn-ems');
-            const usernameValue = document.getElementById('username').value;
-            const passwordValue = document.getElementById('password').value;
-            const publicKey = `{!! isset($publicKey) ? str_replace(["\n", "\r"], ["\\n", ""], $publicKey) : '' !!}`;
-
-            // Efek Loading
             if(btn) {
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
                 btn.style.opacity = '0.8';
                 btn.style.pointerEvents = 'none';
             }
-
-            if(publicKey && publicKey.trim() !== "") {
-                const encrypt = new JSEncrypt();
-                encrypt.setPublicKey(publicKey);
-
-                const encryptedUsername = encrypt.encrypt(usernameValue);
-                const encryptedPassword = encrypt.encrypt(passwordValue);
-
-                if (!encryptedUsername || !encryptedPassword) {
-                    alert('Encryption Error. Silakan refresh halaman.');
-                    location.reload();
-                    return;
-                }
-
-                document.getElementById('encrypted_username').value = encryptedUsername;
-                document.getElementById('encrypted_password').value = encryptedPassword;
-                
-                // Kosongkan input asli agar tidak terkirim dalam bentuk plain text (Keamanan Tambahan)
-                document.getElementById('username').value = '';
-                document.getElementById('password').value = '';
-            } else {
-                // Fallback jika public key gagal dimuat
-                document.getElementById('encrypted_username').value = usernameValue;
-                document.getElementById('encrypted_password').value = passwordValue;
-            }
-
-            this.submit();
         });
     }
 });

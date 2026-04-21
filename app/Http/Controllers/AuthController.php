@@ -18,8 +18,7 @@ class AuthController extends Controller
             session(['vendor_preview_code' => $request->query('from_preview')]);
         }
 
-        $publicKey = file_get_contents(storage_path('app/keys/public.pem'));
-        return view('auth.login', compact('publicKey'));
+        return view('auth.login');
     }
 
     public function login(Request $request)
@@ -27,27 +26,9 @@ class AuthController extends Controller
         try {
             DB::beginTransaction();
 
-            $encryptedUsername = $request->input('encrypted_username');
-            $encryptedPassword = $request->input('encrypted_password');
+            $decryptedUsername = $request->input('username');
+            $decryptedPassword = $request->input('password');
             $role = $request->input('role', 'admin'); // Default admin
-        
-            $privateKeyPath = storage_path('app/keys/private.pem');
-            $privateKeyString = file_get_contents($privateKeyPath);
-            $privateKey = openssl_pkey_get_private($privateKeyString);
-        
-            if (!$privateKey) {
-                Log::error('Private key tidak valid.');
-                DB::rollBack();
-                return back()->withErrors(['Server error.']);
-            }
-        
-            $ok1 = openssl_private_decrypt(base64_decode($encryptedUsername), $decryptedUsername, $privateKey);
-            $ok2 = openssl_private_decrypt(base64_decode($encryptedPassword), $decryptedPassword, $privateKey);
-        
-            if (!$ok1 || !$ok2) {
-                DB::rollBack();
-                return back()->withErrors(['Gagal dekripsi.']);
-            }
         
             if ($role === 'employee') {
                 // Karyawan Login Logic
