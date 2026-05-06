@@ -172,6 +172,10 @@
                         <span class="badge-status badge-status-available">
                             <i class="bi bi-box-seam-fill"></i> Available
                         </span>
+                    @elseif($entity->status == 'TEMPORARY')
+                        <span class="badge-status" style="background-color: #f3e8ff; color: #9333ea; border: 1px solid #d8b4fe; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">
+                            <i class="bi bi-clock-history"></i> Sementara
+                        </span>
                     @else
                         <span class="badge-status badge-status-inactive">
                             <i class="bi bi-x-circle-fill"></i> Non-Aktif
@@ -197,22 +201,22 @@
                     @if($status === 'IN LAUNDRY')
                         <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
                             <span class="spinner-grow spinner-grow-sm me-2" role="status"></span>
-                            <span class="fw-bold" style="font-size: 0.75rem;">SEDANG DI LAUNDRY</span>
+                            <span class="fw-bold" style="font-size: 0.75rem;">Sedang di Cuci</span>
                         </div>
-                    @elseif($status === 'RUSAK')
+                    @elseif($status === 'DAMAGED')
                         <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
                             <i class="bi bi-tools me-2"></i>
-                            <span class="fw-bold" style="font-size: 0.75rem;">ADA SET RUSAK</span>
+                            <span class="fw-bold" style="font-size: 0.75rem;">Ada Set Rusak</span>
                         </div>
-                    @elseif($status === 'HILANG')
+                    @elseif($status === 'LOST')
                         <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25">
                             <i class="bi bi-question-circle-fill me-2"></i>
-                            <span class="fw-bold" style="font-size: 0.75rem;">SET DILAPORKAN HILANG</span>
+                            <span class="fw-bold" style="font-size: 0.75rem;">Set Dilaporkan Hilang</span>
                         </div>
                     @else
                         <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25">
                             <i class="bi bi-check-circle-fill me-2"></i>
-                            <span class="fw-bold" style="font-size: 0.75rem;">AVAILABLE / READY</span>
+                            <span class="fw-bold" style="font-size: 0.75rem;">Sedang digunakan</span>
                         </div>
                     @endif
                 </div>
@@ -284,6 +288,27 @@
                         <td class="value-col fw-bold text-dark">{{ count($setsHilang) }} Set</td>
                     </tr>
                     @endif
+
+                    @php
+                        $tempItems = $entity->items ? $entity->items->filter(fn($i) => $i->pivot->is_temporary ?? false) : [];
+                    @endphp
+                    @if(count($tempItems) > 0)
+                    <tr>
+                        <td colspan="2" class="p-0 pt-3">
+                            <div class="p-2 rounded-3 border" style="background-color: #fdf4ff; border-color: #f5d0fe;">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-info-circle-fill mt-1" style="color: #a855f7; font-size: 0.8rem;"></i>
+                                    <div>
+                                        <div class="fw-bold" style="color: #7e22ce; font-size: 0.75rem;">Notes</div>
+                                        <div style="color: #9333ea; font-size: 0.7rem; line-height: 1.3;">
+                                            {{ $tempItems->first()->pivot->temporary_note ?? 'Ukuran tidak sesuai standar' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    @endif
                 </table>
             </div>
 
@@ -300,19 +325,25 @@
                         @forelse($histories as $log)
                             <div class="timeline-item mb-3" style="position: relative;">
                                 <div style="position: absolute; left: -18px; top: 5px; width: 10px; height: 10px; border-radius: 50%; 
-                                    background: {{ $log->transaction_status == 'OPEN' ? '#f59e0b' : '#10b981' }}; border: 2px solid #fff;">
+                                    background: {{ match($log->transaction_status) { 'IN_PROCESS' => '#f59e0b', 'READY' => '#3b82f6', 'FINISHED' => '#10b981', default => '#94a3b8' } }}; border: 2px solid #fff;">
                                 </div>
                                 
                                 <div class="ps-2">
                                     <div class="fw-bold text-dark" style="font-size: 0.8rem;">
                                         {{ $log->transaction_type }}
-                                        @if($log->transaction_status == 'OPEN')
-                                            <small class="text-warning fw-normal">(Proses)</small>
-                                        @endif
+                                        @php
+                                            $statusInfo = match($log->transaction_status) {
+                                                'IN_PROCESS' => ['label' => 'Sedang Dicuci',  'class' => 'text-warning'],
+                                                'READY'      => ['label' => 'Siap Diambil',   'class' => 'text-info'],
+                                                'FINISHED'   => ['label' => 'Selesai',         'class' => 'text-success'],
+                                                default      => ['label' => $log->transaction_status, 'class' => 'text-muted'],
+                                            };
+                                        @endphp
+                                        <small class="{{ $statusInfo['class'] }} fw-normal">({{ $statusInfo['label'] }})</small>
                                     </div>
                                     <div class="text-muted" style="font-size: 0.7rem;">
                                         {{ $log->created_at->format('d M Y, H:i') }}  
-                                        {{-- <span class="text-primary">{{ $log->creator->name ?? $log->creator->fullname ?? 'System' }}</span> --}}
+                                        &bull; <span class="text-primary fw-medium">{{ $log->employee_name ?? $entity->employee_name ?? '-' }}</span>
                                     </div>
                                     @if($log->items && $log->items->count() > 0)
                                         <div class="mt-2" style="font-size: 0.72rem; color: #475569;">

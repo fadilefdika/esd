@@ -101,11 +101,11 @@
             @forelse($transactions as $trx)
                 @php
                     $entity = $trx->entity;
-                    $isOpen = $trx->transaction_status === 'OPEN';
-                    $isReady = $trx->transaction_status === 'READY';
-                    $statusLabel = $isOpen ? 'Dalam Proses' : ($isReady ? 'Siap Diambil' : 'Selesai');
+                    $isOpen   = $trx->transaction_status === 'IN_PROCESS';
+                    $isReady  = $trx->transaction_status === 'READY';
+                    $statusLabel = $isOpen ? 'Sedang Dicuci' : ($isReady ? 'Siap Diambil' : 'Selesai');
                     $statusColor = $isOpen ? 'warning' : ($isReady ? 'info' : 'success');
-                    $iconClass = $isOpen ? 'bi-arrow-repeat' : ($isReady ? 'bi-box-seam' : 'bi-check2-all');
+                    $iconClass   = $isOpen ? 'bi-arrow-repeat' : ($isReady ? 'bi-box-seam' : 'bi-check2-all');
                     $timeLabel = $trx->created_at ? $trx->created_at->diffForHumans() : '-';
                 @endphp
                 <a href="{{ route('vendor.action', $entity->code ?? '#') }}" 
@@ -119,7 +119,7 @@
                             </div>
                             <div>
                                 <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">{{ $entity->code ?? '-' }}</h6>
-                                <small class="text-muted" style="font-size: 0.7rem;">{{ $entity->employee_name ?? 'Available' }} &bull; {{ $trx->transaction_code }}</small>
+                                <small class="text-muted" style="font-size: 0.7rem;">{{ $trx->employee_name ?? $entity->employee_name ?? 'Available' }} &bull; {{ $trx->transaction_code }}</small>
                             </div>
                         </div>
                         <div class="text-end">

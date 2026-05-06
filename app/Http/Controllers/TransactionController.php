@@ -40,7 +40,7 @@ class TransactionController extends Controller
             $count = $maxCode ? ((int) substr($maxCode, -3)) + 1 : 1;
             $transactionCode = "TRX-{$prefix}-{$dateCode}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
 
-            // LOGIKA BARU: Apapun jenisnya, selalu buat record BARU
+            $entity = \App\Models\Entity::find($entityId);
             $startDate = $request->transaction_date ? \Carbon\Carbon::parse($request->transaction_date) : now();
             
             $transaction = Transaction::create([
@@ -49,17 +49,19 @@ class TransactionController extends Controller
                 'transaction_type'       => $jenis,
                 'transaction_start_date' => $startDate,
                 // Jika Ganti/Hilang langsung FINISHED, jika Serah statusnya OPEN
-                'transaction_status'     => ($jenis === 'Serah ke laundry') ? 'OPEN' : 'FINISHED',
-                'transaction_end_date'   => ($jenis !== 'Serah ke laundry') ? now() : null,
+                'transaction_status'     => ($jenis === 'Serah ke Laundry') ? 'IN_PROCESS' : 'FINISHED',
+                'transaction_end_date'   => ($jenis !== 'Serah ke Laundry') ? now() : null,
                 'creator_id'             => Auth::guard('vendor')->id() ?? Auth::id() ?? 1,
+                'employee_name'          => $entity->employee_name ?? null,
+                'npk'                    => $entity->npk ?? null,
             ]);
 
             // Jika ini adalah proses "Ambil", kita juga harus menutup (FINISH) transaksi "Serah" sebelumnya
             // Agar status global Entity berubah menjadi AVAILABLE kembali
             if ($jenis === 'Ambil dari laundry') {
                 Transaction::where('entity_id', $entityId)
-                    ->where('transaction_type', 'Serah ke laundry')
-                    ->where('transaction_status', 'OPEN')
+                    ->where('transaction_type', 'Serah ke Laundry')
+                    ->where('transaction_status', 'IN_PROCESS')
                     ->update(['transaction_status' => 'FINISHED', 'transaction_end_date' => now()]);
                 
                 $message = "Barang berhasil diambil (Data terekam baru).";
@@ -118,7 +120,7 @@ class TransactionController extends Controller
             }
 
             // Sinkronisasi status item di ENTITY_DETAIL_ITEM secara presisi
-            if ($jenis === 'Serah ke laundry') {
+            if ($jenis === 'Serah ke Laundry') {
                 foreach($syncItems as $si) {
                     DB::table('ENTITY_DETAIL_ITEM')
                         ->where('entity_id', $entityId)
@@ -132,7 +134,7 @@ class TransactionController extends Controller
                         ->where('entity_id', $entityId)
                         ->where('item_id', $si['item_id'])
                         ->where('set_no', $si['set_no'])
-                        ->update(['status' => 'diterima', 'updated_at' => now()]);
+                        ->update(['status' => 'IN_USE', 'updated_at' => now()]);
                 }
             }
 

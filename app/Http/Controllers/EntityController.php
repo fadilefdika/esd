@@ -38,7 +38,7 @@ class EntityController extends Controller
             if (!isset($groupSets[$setNo])) {
                 $groupSets[$setNo] = [];
             }
-            $groupSets[$setNo][] = strtolower($item->pivot->status ?? '');
+            $groupSets[$setNo][] = strtoupper($item->pivot->status ?? '');
         }
 
         $totalSetsOwned = count($groupSets);
@@ -50,9 +50,9 @@ class EntityController extends Controller
         foreach ($groupSets as $setNo => $statuses) {
             // Tentukan kondisi dominan dari set ini
             // Prioritas: hilang > rusak > laundry > tersedia
-            $hasHilang  = in_array('hilang', $statuses);
-            $hasRusak   = in_array('rusak', $statuses);
-            $hasLaundry = count(array_intersect($statuses, ['laundry', 'diproses'])) > 0;
+            $hasHilang  = in_array('LOST', $statuses);
+            $hasRusak   = in_array('DAMAGED', $statuses);
+            $hasLaundry = count(array_intersect($statuses, ['LAUNDRY', 'READY'])) > 0;
 
             if ($hasHilang) {
                 $setsHilang[] = $setNo;
@@ -91,16 +91,25 @@ class EntityController extends Controller
     public function proxyAwork(Request $request)
     {
         try {
-            $apiUrl = env('API_BASE_URL', 'http://localhost:1411');
+            $apiUrl   = env('API_BASE_URL', 'http://localhost:1411');
             $apiToken = env('API_KEY');
 
-            $response = Http::withToken($apiToken)
+            if (!$apiUrl || !$apiToken) {
+                throw new \Exception('API not configured');
+            }
+
+            $response = Http::timeout(5)->withToken($apiToken)
                 ->withHeaders(['Accept' => 'application/json'])
                 ->get($apiUrl . '/api/v1/users', [
                     'search' => $request->search
                 ]);
 
-            return response()->json($response->json(), $response->status());
+            if ($response->successful()) {
+                return response()->json($response->json(), $response->status());
+            }
+
+            throw new \Exception('API returned error: ' . $response->status());
+
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -250,14 +259,16 @@ class EntityController extends Controller
                     $notes = $item['notes'] ?? 'Set ke-' . $setNo;
 
                     $entity->items()->attach($itemId, [
-                        'set_no'       => $setNo,
-                        'size'         => $item['size'] ?? null,
-                        'notes'        => $notes,
-                        'creator_id'   => $currentUserId,
-                        'status'       => $item['status'] ?? '-',
-                        'receive_date' => $item['receive_date'] ?? null,
-                        'return_date'  => $item['return_date'] ?? null,
-                        'return_notes' => $item['return_notes'] ?? '-',
+                        'set_no'         => $setNo,
+                        'size'           => $item['size'] ?? null,
+                        'notes'          => $notes,
+                        'creator_id'     => $currentUserId,
+                        'status'         => $item['status'] ?? '-',
+                        'receive_date'   => $item['receive_date'] ?? null,
+                        'return_date'    => $item['return_date'] ?? null,
+                        'return_notes'   => $item['return_notes'] ?? '-',
+                        'is_temporary'   => isset($item['is_temporary']) ? 1 : 0,
+                        'temporary_note' => $item['temporary_note'] ?? null,
                     ]);
                 }
             }
@@ -275,6 +286,7 @@ class EntityController extends Controller
     public function edit($id)
     {
         $entity = Entity::with('items')->findOrFail($id);
+
         $items = Item::all(); 
         $package = Package::with('items')->get();
         $codeEsds = CodeEsd::all();
@@ -310,6 +322,26 @@ class EntityController extends Controller
 
         if (!$entity) {
             return response()->json(['message' => 'Data tidak ditemukan'], 404);
+        }
+
+        // =========================================================
+        // VALIDASI TASK 1: Pastikan NPK baru tidak dimiliki entity lain
+        // =========================================================
+        $newNpk = $request->npk;
+        if ($newNpk && $newNpk !== $entity->npk) {
+            $conflictEntity = Entity::where('npk', $newNpk)
+                ->where('id', '!=', $id)
+                ->first();
+
+            if ($conflictEntity) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 
+                        "❌ NPK '{$newNpk}' sudah terdaftar di Entity lain (" . $conflictEntity->code . " – " . $conflictEntity->employee_name . "). " .
+                        "Satu karyawan hanya boleh memiliki satu Entity ESD aktif. " .
+                        "Jika ingin memindahkan ESD ini, nonaktifkan Entity lama terlebih dahulu."
+                    );
+            }
         }
 
         $oldCodeEsd = $entity->code_esd;
@@ -353,25 +385,25 @@ class EntityController extends Controller
                 }
 
                 $entity->items()->attach($itemId, [
-                    'set_no'       => $setNo,
-                    'size'         => $item['size'] ?? null,
-                    'notes'        => $notes,
-                    'creator_id'   => $currentUserId,
-                    'status'       => $item['status'] ?? '-',
-                    'receive_date' => $item['receive_date'] ?? null,
-                    'return_date'  => $item['return_date'] ?? null,
-                    'return_notes' => $item['return_notes'] ?? '-',
-                    'created_at'   => $createdAt,
-                    'updated_at'   => now(),
+                    'set_no'         => $setNo,
+                    'size'           => $item['size'] ?? null,
+                    'notes'          => $notes,
+                    'creator_id'     => $currentUserId,
+                    'status'         => $item['status'] ?? 'IN_USE',
+                    'receive_date'   => $item['receive_date'] ?? null,
+                    'return_date'    => $item['return_date'] ?? null,
+                    'return_notes'   => $item['return_notes'] ?? '-',
+                    'is_temporary'   => isset($item['is_temporary']) ? 1 : 0,
+                    'temporary_note' => $item['temporary_note'] ?? null,
+                    'created_at'     => $createdAt,
+                    'updated_at'     => now(),
                 ]);
             }
         } else {
              $entity->items()->detach();
         }
 
-        //return response()->json(['message' => 'Entity berhasil diperbarui', 'data' => $entity]);
         return redirect()->route('admin.entities.index')->with('success', 'Entity Successfully Updated.');
-
     }
 
     public function destroy($id)
@@ -572,13 +604,13 @@ class EntityController extends Controller
     // --- VENDOR LAUNDRY METHODS ---
     public function vendorDashboard()
     {
-        // Query semua transaksi "Serah ke laundry" (baik OPEN, READY maupun FINISHED terbaru)
+        // Query semua transaksi laundry (semua tipe & status relevan)
         $transactions = Transaction::with('entity')
-            ->where('transaction_type', 'Serah ke laundry')
+            ->whereIn('transaction_type', ['Serah ke Laundry', 'Siap Diambil', 'Laundry Diambil'])
             ->latest()
             ->get();
 
-        $openCount = $transactions->where('transaction_status', 'OPEN')->count();
+        $openCount     = $transactions->where('transaction_status', 'IN_PROCESS')->count();
         $finishedCount = $transactions->whereIn('transaction_status', ['FINISHED', 'READY'])->count();
 
         return view('vendor.dashboard', compact('transactions', 'openCount', 'finishedCount'));
@@ -588,10 +620,10 @@ class EntityController extends Controller
     {
         $entity = Entity::with('items')->where('code', $code)->firstOrFail();
         
-        // Ambil transaksi OPEN/READY (sedang di laundry) untuk entity ini
+        // Ambil transaksi aktif untuk entity ini (IN_PROCESS = dicuci, READY = siap diambil)
         $activeTransaction = Transaction::where('entity_id', $entity->id)
-            ->where('transaction_type', 'Serah ke laundry')
-            ->whereIn('transaction_status', ['OPEN', 'READY'])
+            ->whereIn('transaction_type', ['Serah ke Laundry', 'Siap Diambil'])
+            ->whereIn('transaction_status', ['IN_PROCESS', 'READY'])
             ->with('items')
             ->latest()
             ->first();
@@ -608,16 +640,16 @@ class EntityController extends Controller
                     $tempGroup[$setNo] = ['items' => [], 'statuses' => []];
                 }
                 $tempGroup[$setNo]['items'][$item->item_name] = $item;
-                $tempGroup[$setNo]['statuses'][] = strtolower($item->pivot->status ?? '');
+                $tempGroup[$setNo]['statuses'][] = strtoupper($item->pivot->status ?? '');
             }
 
             $totalSetsCount = count($tempGroup);
 
             foreach ($tempGroup as $setNo => $data) {
                 $statuses = $data['statuses'];
-                $hasHilang = in_array('hilang', $statuses);
-                $hasRusak = in_array('rusak', $statuses);
-                $hasLaundry = count(array_intersect($statuses, ['laundry', 'diproses'])) > 0;
+                $hasHilang  = in_array('LOST', $statuses);
+                $hasRusak   = in_array('DAMAGED', $statuses);
+                $hasLaundry = count(array_intersect($statuses, ['LAUNDRY', 'READY'])) > 0;
 
                 if ($hasHilang) {
                     $setStatus = 'Hilang';
@@ -655,44 +687,65 @@ class EntityController extends Controller
     public function vendorUpdateStatus(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|in:OPEN,FINISHED,READY',
+            'status' => 'required|in:READY',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $transaction = Transaction::with('entity')->findOrFail($id);
-            $newStatus = $request->status;
+            $inProcessTransaction = Transaction::with('entity')->findOrFail($id);
+            $entity = $inProcessTransaction->entity;
 
-            $transaction->update([
-                'transaction_status' => $newStatus,
-                'transaction_end_date' => in_array($newStatus, ['FINISHED', 'READY']) ? now() : null,
+            // 1. Tutup transaksi IN_PROCESS yang aktif
+            $inProcessTransaction->update([
+                'transaction_status'   => 'FINISHED',
+                'transaction_end_date' => now(),
             ]);
 
-            // Sinkronisasi status di ENTITY_DETAIL_ITEM secara presisi
+            // 2. Ambil item-item dari transaksi lama
             $pivotItems = DB::table('TRANSACTION_DETAIL_ITEM')->where('transaction_id', $id)->get();
-            
-            if ($pivotItems->count() > 0) {
-                $pivotStatus = 'LAUNDRY';
-                if ($newStatus === 'FINISHED') $pivotStatus = 'diterima';
-                if ($newStatus === 'READY') $pivotStatus = 'siap_diambil';
-                
-                foreach($pivotItems as $p) {
-                    DB::table('ENTITY_DETAIL_ITEM')
-                        ->where('entity_id', $transaction->entity_id)
-                        ->where('item_id', $p->item_id)
-                        ->where('set_no', $p->set_no)
-                        ->update(['status' => $pivotStatus, 'updated_at' => now()]);
-                }
+
+            // 3. Buat record baru "Siap Diambil"
+            $dateCode = now()->format('Ymd');
+            $maxCode  = Transaction::where('transaction_code', 'LIKE', "TRX-RDY-{$dateCode}-%")->max('transaction_code');
+            $count    = $maxCode ? ((int) substr($maxCode, -3)) + 1 : 1;
+            $trxCode  = "TRX-RDY-{$dateCode}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
+
+            $readyTransaction = Transaction::create([
+                'entity_id'              => $entity->id,
+                'transaction_code'       => $trxCode,
+                'transaction_type'       => 'Siap Diambil',
+                'transaction_start_date' => now(),
+                'transaction_end_date'   => now(),
+                'transaction_status'     => 'READY',
+                'creator_id'             => Auth::guard('vendor')->id() ?? 1,
+                'employee_name'          => $entity->employee_name,
+                'npk'                    => $entity->npk,
+            ]);
+
+            // 4. Salin item ke record baru & update status pivot
+            foreach ($pivotItems as $p) {
+                DB::table('TRANSACTION_DETAIL_ITEM')->insert([
+                    'transaction_id' => $readyTransaction->id,
+                    'item_id'        => $p->item_id,
+                    'set_no'         => $p->set_no,
+                    'creator_id'     => Auth::guard('vendor')->id() ?? 1,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ]);
+
+                DB::table('ENTITY_DETAIL_ITEM')
+                    ->where('entity_id', $entity->id)
+                    ->where('item_id', $p->item_id)
+                    ->where('set_no', $p->set_no)
+                    ->update(['status' => 'READY', 'updated_at' => now()]);
             }
 
             DB::commit();
 
             return response()->json([
-                'status' => 'success', 
-                'message' => $newStatus === 'FINISHED' 
-                    ? 'Cucian ditandai selesai! Siap diambil.' 
-                    : 'Status dikembalikan ke proses.'
+                'status'  => 'success',
+                'message' => 'Cucian ditandai Siap Diambil! Karyawan dapat konfirmasi pengambilan.'
             ]);
 
         } catch (\Exception $e) {
@@ -710,10 +763,10 @@ class EntityController extends Controller
         $activeTransaction = null;
 
         if ($entity) {
-            // Cek transaksi OPEN/READY (masih diproses / nunggu diambil)
+            // Cek transaksi aktif: IN_PROCESS (sedang dicuci) atau READY (siap diambil)
             $activeTransaction = Transaction::where('entity_id', $entity->id)
-                ->where('transaction_type', 'Serah ke laundry')
-                ->whereIn('transaction_status', ['OPEN', 'READY'])
+                ->whereIn('transaction_type', ['Serah ke Laundry', 'Siap Diambil'])
+                ->whereIn('transaction_status', ['IN_PROCESS', 'READY'])
                 ->latest()
                 ->first();
 
@@ -750,17 +803,18 @@ class EntityController extends Controller
         }
 
         $activeTransaction = Transaction::where('entity_id', $entity->id)
-            ->where('transaction_type', 'Serah ke laundry')
-            ->whereIn('transaction_status', ['OPEN', 'READY'])
+            ->where('transaction_type', 'Siap Diambil')
+            ->where('transaction_status', 'READY')
             ->latest()
             ->first();
 
         if (!$activeTransaction) {
-            return back()->with('error', 'Tidak ada transaksi laundry yang aktif.');
+            return back()->with('error', 'Belum ada notifikasi bahwa laundry siap diambil.');
         }
 
         DB::beginTransaction();
         try {
+            // 1. Tutup transaksi "Siap Diambil" yang aktif
             $activeTransaction->update([
                 'transaction_status'   => 'FINISHED',
                 'transaction_end_date' => now(),
@@ -770,20 +824,48 @@ class EntityController extends Controller
                 ->where('transaction_id', $activeTransaction->id)
                 ->get();
 
+            // 2. Buat record baru "Laundry Diambil"
+            $dateCode = now()->format('Ymd');
+            $maxCode  = Transaction::where('transaction_code', 'LIKE', "TRX-AMB-{$dateCode}-%")->max('transaction_code');
+            $count    = $maxCode ? ((int) substr($maxCode, -3)) + 1 : 1;
+            $trxCode  = "TRX-AMB-{$dateCode}-" . str_pad($count, 3, '0', STR_PAD_LEFT);
+
+            $pickupTransaction = Transaction::create([
+                'entity_id'              => $entity->id,
+                'transaction_code'       => $trxCode,
+                'transaction_type'       => 'Laundry Diambil',
+                'transaction_start_date' => now(),
+                'transaction_end_date'   => now(),
+                'transaction_status'     => 'FINISHED',
+                'creator_id'             => auth('web')->id() ?? 1,
+                'employee_name'          => $entity->employee_name,
+                'npk'                    => $entity->npk,
+            ]);
+
+            // 3. Salin detail item & update status pivot ke IN_USE
             foreach ($pivotItems as $p) {
+                DB::table('TRANSACTION_DETAIL_ITEM')->insert([
+                    'transaction_id' => $pickupTransaction->id,
+                    'item_id'        => $p->item_id,
+                    'set_no'         => $p->set_no,
+                    'creator_id'     => auth('web')->id() ?? 1,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ]);
+
                 DB::table('ENTITY_DETAIL_ITEM')
                     ->where('entity_id', $entity->id)
                     ->where('item_id', $p->item_id)
                     ->where('set_no', $p->set_no)
-                    ->update(['status' => 'diterima', 'updated_at' => now()]);
+                    ->update(['status' => 'IN_USE', 'updated_at' => now()]);
             }
 
             DB::commit();
-            return back()->with('success', 'Laundry berhasil dikonfirmasi diterima. Status seragam kembali tersedia.');
+            return back()->with('success', 'Laundry berhasil dikonfirmasi diterima. Status seragam kembali In Use.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Gagal konfirmasi: ' + $e->getMessage());
+            return back()->with('error', 'Gagal konfirmasi: ' . $e->getMessage());
         }
     }
 }

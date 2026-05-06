@@ -14,7 +14,8 @@ class ReportIncident extends Model
     protected $fillable = [
         'entity_id', 'item_id', 'set_no', 'report_type', 
         'details', 'evidence_path', 
-        'status_report', 'creator_id'
+        'status_report', 'creator_id',
+        'employee_name', 'npk'
     ];
 
     // Relasi ke tabel ENTITY

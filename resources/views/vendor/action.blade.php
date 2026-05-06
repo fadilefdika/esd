@@ -38,10 +38,12 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="fw-bold mb-0 text-dark">{{ $entity->code }}</h5>
             @if($activeTransaction)
-                @if($activeTransaction->transaction_status === 'OPEN')
-                    <span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-hourglass-split"></i> Diproses</span>
+                @if($activeTransaction->transaction_status === 'IN_PROCESS')
+                    <span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-hourglass-split"></i> Sedang Dicuci</span>
+                @elseif($activeTransaction->transaction_status === 'READY')
+                    <span class="badge bg-success px-2 py-1"><i class="bi bi-check-circle"></i> Siap Diambil</span>
                 @else
-                    <span class="badge bg-success px-2 py-1"><i class="bi bi-check-circle"></i> Selesai</span>
+                    <span class="badge bg-secondary px-2 py-1">Selesai</span>
                 @endif
             @else
                 <span class="badge bg-secondary px-2 py-1">Tidak Ada Cucian</span>
@@ -101,19 +103,19 @@
                     @if($activeTransaction->transaction_status === 'READY')
                         <i class="bi bi-check-circle fs-4 text-success me-3"></i>
                         <div>
-                            <div class="fw-bold text-dark" style="font-size: 0.9rem;">Status Saat Ini: Siap Diambil</div>
-                            <div class="text-muted" style="font-size: 0.75rem;">Selesai Dicuci</div>
+                            <div class="fw-bold text-dark" style="font-size: 0.9rem;">Status Saat Ini: Siap Diambil ✅</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Menunggu konfirmasi karyawan</div>
                         </div>
-                    @else
+                    @elseif($activeTransaction->transaction_status === 'IN_PROCESS')
                         <i class="bi bi-arrow-repeat fs-4 text-warning me-3"></i>
                         <div>
-                            <div class="fw-bold text-dark" style="font-size: 0.9rem;">Status Saat Ini: Sedang Diproses</div>
+                            <div class="fw-bold text-dark" style="font-size: 0.9rem;">Status Saat Ini: Sedang Dicuci 🧺</div>
                             <div class="text-muted" style="font-size: 0.75rem;">Masuk: {{ $activeTransaction->created_at->format('d M Y, H:i') }}</div>
                         </div>
                     @endif
                 </div>
 
-                @if($activeTransaction->transaction_status !== 'READY')
+                @if($activeTransaction->transaction_status === 'IN_PROCESS')
                     <p class="text-muted mb-3" style="font-size: 0.8rem;">Tekan tombol di bawah jika cucian sudah selesai dan siap diambil oleh karyawan.</p>
 
                     <form id="formUpdateStatus">

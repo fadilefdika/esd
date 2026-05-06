@@ -76,16 +76,16 @@
                 <div class="d-flex align-items-start mb-2">
                     <span class="spinner-grow spinner-grow-sm text-warning me-2 mt-1" role="status"></span>
                     @if($activeTransaction && $activeTransaction->transaction_status === 'READY')
-                        <span class="fw-semibold text-dark" style="font-size: 0.85rem; line-height: 1.3;">Laundry Anda sudah selesai dicuci! Silakan ambil.</span>
+                        <span class="fw-semibold text-dark" style="font-size: 0.85rem; line-height: 1.3;">Laundry Anda sudah selesai dicuci dan siap diambil! 🎉</span>
                     @else
                         <span class="fw-semibold text-dark" style="font-size: 0.85rem; line-height: 1.3;">Sebagian atau seluruh seragam Anda sedang dalam proses laundry.</span>
                     @endif
                 </div>
 
-                @if($activeTransaction && $activeTransaction->transaction_status === 'OPEN')
-                    <p class="mb-0 text-muted mt-1" style="font-size: 0.75rem;">Harap tunggu hingga Vendor menyelesaikan proses penyucian. Anda hanya bisa konfirmasi apabila statusnya siap diambil.</p>
+                @if($activeTransaction && $activeTransaction->transaction_status === 'IN_PROCESS')
+                    <p class="mb-0 text-muted mt-1" style="font-size: 0.75rem;">Harap tunggu hingga Vendor menyelesaikan proses penyucian. Tombol konfirmasi akan muncul setelah seragam siap diambil.</p>
                 @else
-                    <p class="mb-3 text-muted" style="font-size: 0.75rem;">Setelah seragam diterima kembali, konfirmasikan di bawah agar status kembali tersedia.</p>
+                    <p class="mb-3 text-muted" style="font-size: 0.75rem;">Seragam sudah siap. Konfirmasikan bahwa Anda telah menerima seragam kembali.</p>
                     <form action="{{ route('employee.laundry.confirm') }}" method="POST">
                         @csrf
                         <button type="submit" class="btn btn-success btn-sm w-100 fw-bold py-2" style="border-radius: 10px; font-size: 0.8rem;">
@@ -103,18 +103,23 @@
                 $borderColor = '#10b981';
 
                 foreach($items as $it) {
-                    $status = strtolower($it->pivot->status ?? '');
-                    if (in_array($status, ['laundry', 'diproses'])) {
+                    $status = strtoupper($it->pivot->status ?? '');
+                    if ($status === 'LAUNDRY') {
                         $setStatus   = 'Sedang di Laundry';
                         $badgeClass  = 'bg-warning text-dark';
                         $borderColor = '#f59e0b';
                         break;
-                    } elseif ($status === 'rusak') {
+                    } elseif ($status === 'READY') {
+                        $setStatus   = 'Siap Diambil';
+                        $badgeClass  = 'bg-info text-dark';
+                        $borderColor = '#0ea5e9';
+                        break;
+                    } elseif ($status === 'DAMAGED') {
                         $setStatus   = 'Rusak';
                         $badgeClass  = 'bg-danger';
                         $borderColor = '#ef4444';
                         break;
-                    } elseif ($status === 'hilang') {
+                    } elseif ($status === 'LOST') {
                         $setStatus   = 'Hilang';
                         $badgeClass  = 'bg-dark';
                         $borderColor = '#6b7280';
@@ -131,30 +136,62 @@
                     </div>
                     
                     {{-- Grid Item: Diubah ke d-grid untuk mobile agar lebih rapi --}}
-                    <div class="d-flex flex-wrap gap-2">
-                        @foreach($items as $i)
-                            @php
-                                $itemStatus = strtolower($i->pivot->status ?? '');
-                                $isReported = in_array($itemStatus, ['hilang', 'rusak']);
-                            @endphp
-                            
-                            @if($isReported)
-                                <div class="badge {{ $itemStatus === 'hilang' ? 'bg-dark' : 'bg-danger' }} text-start p-2 border-0 shadow-sm w-100" style="border-radius: 10px; max-width: 100%;">
-                                    <div class="fw-bold mb-1" style="font-size: 0.8rem;">
-                                        <i class="bi {{ $itemStatus === 'hilang' ? 'bi-slash-circle' : 'bi-exclamation-triangle' }} me-1"></i>{{ $i->item_name }}
-                                    </div>
-                                    <div class="fw-normal opacity-75" style="font-size: 0.65rem; line-height: 1.2;">
-                                        Dilaporkan {{ ucfirst($itemStatus) }} pada:<br>
-                                        {{ $i->pivot->updated_at ? \Carbon\Carbon::parse($i->pivot->updated_at)->format('d M Y, H:i') : '-' }} WIB
-                                    </div>
-                                </div>
-                            @else
-                                <span class="badge bg-light text-dark border d-inline-flex align-items-center px-2 py-2" style="border-radius: 8px; font-size: 0.75rem; font-weight: 500;">
-                                    {{ $i->item_name }}
-                                </span>
-                            @endif
-                        @endforeach
+<div class="d-flex flex-wrap gap-2">
+    @foreach($items as $i)
+        @php
+            $itemStatus = strtoupper($i->pivot->status ?? '');
+            $isTemp = $i->pivot->is_temporary ?? false;
+            
+            // Logika Warna & Icon (Hanya muncul jika tidak tersedia)
+            $config = match($itemStatus) {
+                'DAMAGED' => ['color' => '#ef4444', 'label' => 'Rusak',        'icon' => 'bi-exclamation-triangle-fill'],
+                'LOST'    => ['color' => '#f59e0b', 'label' => 'Hilang',       'icon' => 'bi-slash-circle-fill'],
+                'LAUNDRY' => ['color' => '#3b82f6', 'label' => 'Laundry',      'icon' => 'bi-info-circle-fill'],
+                'READY'   => ['color' => '#0ea5e9', 'label' => 'Siap Diambil', 'icon' => 'bi-bag-check-fill'],
+                default   => ['color' => '#e2e8f0', 'label' => null,           'icon' => null]
+            };
+            
+            $isIssue = $config['label'] !== null;
+        @endphp
+
+        <div class="d-flex flex-column mb-1" style="max-width: 100%;">
+            {{-- Item Pill --}}
+            <div class="badge bg-white text-dark border d-flex flex-column align-items-start px-3 py-2" 
+                  style="border-radius: 8px; 
+                         text-align: left;
+                         border-color: {{ $isIssue ? $config['color'] : ($isTemp ? '#8b5cf6' : '#e2e8f0') }} !important;
+                         border-left-width: {{ $isIssue || $isTemp ? '4px' : '1px' }} !important;">
+                
+                <div style="font-size: 0.75rem; font-weight: 500;">
+                    {{ $i->item_name }}
+                    @if($i->pivot->size)
+                        <span class="ms-1 text-muted" style="font-size: 0.65rem;">({{ $i->pivot->size }})</span>
+                    @endif
+                </div>
+                
+                {{-- Temporary Sizing Indicator --}}
+                @if($isTemp)
+                    <div class="mt-1 fw-bold text-wrap" style="font-size: 0.65rem; color: #8b5cf6; line-height: 1.2;">
+                        <i class="bi bi-exclamation-circle me-1"></i>Notes
+                        @if($i->pivot->temporary_note)
+                            <div class="fw-normal text-muted mt-1 fst-italic">{{ $i->pivot->temporary_note }}</div>
+                        @endif
                     </div>
+                @endif
+            </div>
+
+            {{-- Info Status (Hanya muncul jika Rusak/Hilang/Laundry) --}}
+            @if($isIssue)
+                <small class="mt-1 ps-1 fw-bold text-wrap" style="font-size: 0.6rem; color: {{ $config['color'] }}; line-height: 1.2;">
+                    <i class="bi {{ $config['icon'] }} me-1"></i>{{ $config['label'] }} 
+                    @if($i->pivot->updated_at)
+                        <span class="fw-normal text-muted ms-1">({{ \Carbon\Carbon::parse($i->pivot->updated_at)->format('d M H:i') }})</span>
+                    @endif
+                </small>
+            @endif
+        </div>
+    @endforeach
+</div>
                 </div>
             </div>
         @empty

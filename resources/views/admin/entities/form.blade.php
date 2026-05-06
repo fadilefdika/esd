@@ -64,8 +64,9 @@
                     <div class="col-md-2">
                         <label class="input-label">Status</label>
                         <select name="status" class="form-select form-select-sm fw-bold">
-                            <option value="AKTIF" {{ (old('status', $entity->status ?? 'AKTIF') == 'AKTIF') ? 'selected' : '' }}>AKTIF</option>
-                            <option value="NON-AKTIF" {{ (old('status', $entity->status ?? '') == 'NON-AKTIF') ? 'selected' : '' }}>NON-AKTIF</option>
+                            <option value="AKTIF"     {{ (old('status', $entity->status ?? 'AKTIF') == 'AKTIF')     ? 'selected' : '' }}>AKTIF</option>
+                            <option value="AVAILABLE" {{ (old('status', $entity->status ?? '') == 'AVAILABLE') ? 'selected' : '' }}>AVAILABLE (Cadangan)</option>
+                            <option value="TEMPORARY" {{ (old('status', $entity->status ?? '') == 'TEMPORARY') ? 'selected' : '' }}>TEMPORARY (Sementara)</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -91,7 +92,7 @@
                     </div>
                     <div class="col-md-2">
                         <label class="input-label">Code ESD</label>
-                        <select name="code_esd" id="code_esd_select" class="form-select form-select-sm">
+                        <select {!! $isEdit ? 'id="code_esd_select_display" style="pointer-events: none; background: #e9ecef;" tabindex="-1"' : 'name="code_esd" id="code_esd_select"' !!} class="form-select form-select-sm">
                             <option value="">Pilih Code ESD</option>
                             @foreach($codeEsds as $codeEsd)
                                 <option value="{{ $codeEsd->id }}" data-name="{{ $codeEsd->name }}"
@@ -100,6 +101,9 @@
                                 </option>
                             @endforeach
                         </select>
+                        @if($isEdit)
+                            <input type="hidden" name="code_esd" id="code_esd_select" value="{{ $entity->code_esd ?? '' }}">
+                        @endif
                     </div>
                      <div class="col-md-2">
                         <label class="input-label">Keterangan (Paket)</label>
@@ -135,13 +139,15 @@
                 <div id="item-wrapper">
                     @php $loopItems = (isset($entity) && $entity->items->count() > 0) ? $entity->items : [null]; @endphp
                     @foreach($loopItems as $index => $pivotItem)
-                        @include('admin.entities.partials.item-row', ['index' => $index, 'pivotItem' => $pivotItem])
+                        @include('admin.entities.partials.item-row', ['index' => $index, 'pivotItem' => $pivotItem, 'isEdit' => $isEdit])
                     @endforeach
                 </div>
                 
+                @if(!$isEdit)
                 <button type="button" id="add-item-btn" class="btn btn-xs btn-outline-primary mt-2" style="font-size: 0.7rem; font-weight: 700; padding: 4px 12px;">
                     <i class="bi bi-plus-lg me-1"></i>TAMBAH BARIS
                 </button>
+                @endif
 
                 <div class="mt-5 pt-3 border-top d-flex justify-content-end align-items-center gap-3">
                     <span class="text-muted small italic">Pastikan data sudah benar sebelum menyimpan.</span>
@@ -155,7 +161,7 @@
 </div>
 
 <template id="item-row-template">
-    @include('admin.entities.partials.item-row', ['index' => 'ID_PLACEHOLDER', 'pivotItem' => null])
+    @include('admin.entities.partials.item-row', ['index' => 'ID_PLACEHOLDER', 'pivotItem' => null, 'isEdit' => false])
 </template>
 @endsection
 
@@ -239,7 +245,7 @@ $(document).ready(function() {
                     // Set the values for the newly appended row
                     const currentRow = $('#item-wrapper .item-row').last();
                     currentRow.find('select[name^="items"][name$="[item_id]"]').val(item.id);
-                    currentRow.find('select[name^="items"][name$="[status]"]').val('Diterima');
+                    currentRow.find('select[name^="items"][name$="[status]"]').val('IN_USE');
                     
                     // Auto-fill size based on CodeESD extraction logic if sizeExtraction is provided
                     if (sizeExtraction) {
@@ -282,6 +288,16 @@ $(document).ready(function() {
     // We keep this just in case manual trigger needed, but usually redundant now since codeEsd drives it
     $('#package_select_display').on('change', function() {
         // Will not trigger manually due to pointer-events:none
+    });
+
+    // Toggle Temporary Note input
+    $(document).on('change', '.temp-checkbox', function() {
+        if ($(this).is(':checked')) {
+            $(this).closest('.col-12').find('.temp-note-container').slideDown(200);
+        } else {
+            $(this).closest('.col-12').find('.temp-note-container').slideUp(200);
+            $(this).closest('.col-12').find('.temp-note-container input').val(''); // Clear on uncheck
+        }
     });
 });
 </script>

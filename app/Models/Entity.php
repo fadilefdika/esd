@@ -18,7 +18,7 @@ class Entity extends Model
     public function items()
     {
         return $this->belongsToMany(Item::class, 'ENTITY_DETAIL_ITEM', 'entity_id', 'item_id')
-                    ->withPivot('set_no', 'size', 'notes', 'creator_id', 'status', 'receive_date', 'return_date', 'return_notes')
+                    ->withPivot('set_no', 'size', 'notes', 'creator_id', 'status', 'receive_date', 'return_date', 'return_notes', 'is_temporary', 'temporary_note')
                     ->withTimestamps();
     }
 

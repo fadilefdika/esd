@@ -13,6 +13,7 @@ class Transaction extends Model
         'id', 'entity_id', 'transaction_code', 'transaction_start_date', 
         'transaction_end_date', 'transaction_type', 'transaction_status', 
         'transaction_image_start', 'transaction_image_finish',
+        'employee_name', 'npk',
         'created_at', 'updated_at', 'creator_id'
     ];
 

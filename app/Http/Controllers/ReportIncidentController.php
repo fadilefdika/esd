@@ -72,6 +72,8 @@ class ReportIncidentController extends Controller
                     'evidence_path' => $evidenceJson,
                     'status_report' => 'pending',
                     'creator_id'    => $user->id,
+                    'employee_name' => $entity->employee_name,
+                    'npk'           => $entity->npk,
                 ]);
 
                 // 6. Update status HANYA untuk item yang dilaporkan saja
@@ -80,7 +82,7 @@ class ReportIncidentController extends Controller
                     ->where('item_id', $itemId)
                     ->where('set_no', $setNo)
                     ->update([
-                        'status'     => $request->report_type, // 'rusak' atau 'hilang'
+                        'status'     => strtoupper($request->report_type === 'rusak' ? 'DAMAGED' : 'LOST'),
                         'updated_at' => now()
                     ]);
             }

@@ -481,3 +481,43 @@ VALUES (
 
 -- 3. Matikan kembali fitur penginputan ID manual agar auto-increment normal kembali
 SET IDENTITY_INSERT [esd].[dbo].[vendors] OFF;
+
+
+// update 3 mei fadil
+-- menambahkan kolom is_temporary dan temporary_note ke tabel ENTITY_DETAIL_ITEM
+ALTER TABLE [dbo].[ENTITY_DETAIL_ITEM]
+ADD [is_temporary] BIT DEFAULT 0 NOT NULL,
+    [temporary_note] VARCHAR(MAX) NULL;
+
+
+ALTER TABLE [dbo].[TRANSACTION]
+ADD [employee_name] VARCHAR(100) NULL,
+    [npk] VARCHAR(50) NULL;
+
+ALTER TABLE [dbo].[REPORT_INCIDENTS]
+ADD [employee_name] VARCHAR(100) NULL,
+    [npk] VARCHAR(50) NULL;
+
+
+// update 6 mei fadil
+-- =============================================
+-- BACKUP DULU SEBELUM MENJALANKAN INI!
+-- =============================================
+
+-- 1. Standardisasi status di ENTITY_DETAIL_ITEM
+UPDATE [dbo].[ENTITY_DETAIL_ITEM] SET [status] = 'IN_USE'   WHERE LOWER([status]) IN ('diterima', 'available', '-');
+UPDATE [dbo].[ENTITY_DETAIL_ITEM] SET [status] = 'LAUNDRY'  WHERE LOWER([status]) IN ('laundry', 'diproses');
+UPDATE [dbo].[ENTITY_DETAIL_ITEM] SET [status] = 'READY'    WHERE LOWER([status]) = 'siap_diambil';
+UPDATE [dbo].[ENTITY_DETAIL_ITEM] SET [status] = 'DAMAGED'  WHERE LOWER([status]) IN ('rusak');
+UPDATE [dbo].[ENTITY_DETAIL_ITEM] SET [status] = 'LOST'     WHERE LOWER([status]) IN ('hilang');
+UPDATE [dbo].[ENTITY_DETAIL_ITEM] SET [status] = 'RETURNED' WHERE LOWER([status]) = 'dikembalikan';
+
+-- 2. Standardisasi status di TRANSACTION (OPEN → IN_PROCESS)
+UPDATE [dbo].[TRANSACTION] SET [transaction_status] = 'IN_PROCESS' WHERE [transaction_status] = 'OPEN';
+
+-- 3. Verifikasi hasilnya (harus tidak ada nilai lama yang tersisa)
+SELECT 'ENTITY_DETAIL_ITEM' AS tabel, [status], COUNT(*) AS jumlah 
+  FROM [dbo].[ENTITY_DETAIL_ITEM] GROUP BY [status];
+
+SELECT 'TRANSACTION' AS tabel, [transaction_status], COUNT(*) AS jumlah 
+  FROM [dbo].[TRANSACTION] GROUP BY [transaction_status];
