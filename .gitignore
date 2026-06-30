@@ -12,6 +12,7 @@ yarn-error.log
 
 # Laravel Storage & Logs
 /storage/*.key
+/storage/keys/*.pem
 /storage/framework/cache/data/*
 /storage/framework/sessions/*
 /storage/framework/views/*.php
@@ -34,3 +35,5 @@ Homestead.yaml
 /.nova
 /.vscode
 /.zed
+
+AGENTS.md

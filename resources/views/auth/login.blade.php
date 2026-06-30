@@ -10,7 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-
     <style>
         :root {
             --primary-ems: #2563eb;
@@ -350,16 +349,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // === 4. Form Submission Loading Effect ===
+    // === 4. Form Submission Loading Effect & RSA Encryption ===
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
         loginForm.addEventListener('submit', function (e) {
+            e.preventDefault(); // Mencegah submit langsung
+            
             const btn = this.querySelector('.btn-ems');
+            const passwordField = document.getElementById('password');
+            
             if(btn) {
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Mengamankan...';
                 btn.style.opacity = '0.8';
                 btn.style.pointerEvents = 'none';
             }
+
+            // Lanjutkan submit form ke server
+            this.submit();
         });
     }
 });

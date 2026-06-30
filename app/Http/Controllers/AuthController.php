@@ -23,56 +23,33 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        // Log tampering alert if role parameter is explicitly provided
+        if ($request->has('role')) {
+            Log::warning('Login Tampering Attempt: role parameter sent in request', [
+                'ip' => $request->ip(),
+                'username' => $request->input('username'),
+                'role_value' => $request->input('role')
+            ]);
+        }
+
+        $decryptedUsername = $request->input('username');
+        $decryptedPassword = $request->input('password');
+
         try {
             DB::beginTransaction();
 
-            $decryptedUsername = $request->input('username');
-            $decryptedPassword = $request->input('password');
-            $role = $request->input('role', 'admin'); // Default admin
-        
-            if ($role === 'employee') {
-                // Karyawan Login Logic
-                $user = \App\Models\User::where('npk', $decryptedUsername)->first();
-                
-                if (!$user) {
-                    DB::rollBack();
-                    return back()->withErrors(['NPK tidak ditemukan.'])->withInput();
-                }
-
-                // Cek apakah password plain text ATAU hashed bcrypt
-                $isPasswordValid = false;
-                if ($user->password === $decryptedPassword) {
-                    $isPasswordValid = true; // Plain text match
-                } elseif (\Hash::check($decryptedPassword, $user->password)) {
-                    $isPasswordValid = true; // Hashed match
-                }
-
-                if (!$isPasswordValid) {
-                    DB::rollBack();
-                    return back()->withErrors(['Password salah.'])->withInput();
-                }
-            
-                Auth::guard('web')->login($user);
+            // 1. Attempt Admin Login
+            $admin = Admin::where('username', $decryptedUsername)->first();
+            if ($admin && $this->verifyAndUpgradePassword($admin, 'password_hash', $decryptedPassword)) {
+                Auth::guard('admin')->login($admin);
                 DB::commit();
-
                 session()->forget('vendor_preview_code');
+                return redirect()->route('admin.entities.index');
+            }
 
-                // Redirect ke URL yang dituju (intended) sebelum dipaksa login, atau fallback ke dashboard
-                return redirect()->intended(route('employee.dashboard'));
-            } elseif ($role === 'vendor') {
-                // Vendor Login Logic
-                $vendor = \App\Models\Vendor::where('username', $decryptedUsername)->first();
-                
-                if (!$vendor) {
-                    DB::rollBack();
-                    return back()->withErrors(['Username/Kode Vendor tidak ditemukan.'])->withInput();
-                }
-
-                if (!\Hash::check($decryptedPassword, $vendor->password_hash)) {
-                    DB::rollBack();
-                    return back()->withErrors(['Password salah.'])->withInput();
-                }
-            
+            // 2. Attempt Vendor Login
+            $vendor = \App\Models\Vendor::where('username', $decryptedUsername)->first();
+            if ($vendor && $this->verifyAndUpgradePassword($vendor, 'password_hash', $decryptedPassword)) {
                 Auth::guard('vendor')->login($vendor);
                 DB::commit();
 
@@ -80,23 +57,21 @@ class AuthController extends Controller
                     $code = session()->pull('vendor_preview_code');
                     return redirect()->route('vendor.action', $code);
                 }
-
                 return redirect()->intended(route('vendor.dashboard'));
-            } else {
-                // Admin Login Logic
-                $user = Admin::where('username', $decryptedUsername)->first();
-                if (!$user || !Hash::check($decryptedPassword, $user->password_hash)) {
-                    DB::rollBack();
-                    return back()->withErrors(['Username atau password salah.']);
-                }
-            
-                Auth::guard('admin')->login($user);
-                DB::commit();
-                
-                session()->forget('vendor_preview_code');
-
-                return redirect()->route('admin.entities.index');
             }
+
+            // 3. Attempt Employee Login
+            $user = \App\Models\User::where('npk', $decryptedUsername)->first();
+            if ($user && $this->verifyAndUpgradePassword($user, 'password', $decryptedPassword)) {
+                Auth::guard('web')->login($user);
+                DB::commit();
+                session()->forget('vendor_preview_code');
+                return redirect()->intended(route('employee.dashboard'));
+            }
+
+            // Authentication failed for all roles
+            DB::rollBack();
+            return back()->withErrors(['Username/NPK atau password salah.'])->withInput();
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -128,4 +103,44 @@ class AuthController extends Controller
         return redirect()->route('login');
     }
 
+    /**
+     * Memverifikasi password dan otomatis melakukan update dari Plaintext/MD5 ke Bcrypt.
+     */
+    private function verifyAndUpgradePassword($model, $passwordField, $plainPassword)
+    {
+        $currentPassword = $model->{$passwordField};
+
+        try {
+            // Coba verifikasi dengan format hash modern (Bcrypt/Argon2)
+            if (Hash::check($plainPassword, $currentPassword)) {
+                return true;
+            }
+        } catch (\Exception $e) {
+            // Mengabaikan error "This password does not use the Bcrypt algorithm"
+            // yang muncul saat mendeteksi password usang, dan lanjut ke pengecekan legacy
+        }
+
+        // Cek jika password masih berupa Plaintext (belum di-hash)
+        if ($currentPassword === $plainPassword) {
+            $model->{$passwordField} = Hash::make($plainPassword);
+            $model->save();
+            return true;
+        }
+
+        // Cek jika password masih berupa MD5
+        if ($currentPassword === md5($plainPassword)) {
+            $model->{$passwordField} = Hash::make($plainPassword);
+            $model->save();
+            return true;
+        }
+
+        // --- DEBUGGING LOG ---
+        Log::warning('Password Mismatch Debug', [
+            'username_or_id' => $model->id ?? 'unknown',
+            'password_from_form_decrypted' => $plainPassword,
+            'password_in_database' => $currentPassword
+        ]);
+
+        return false;
+    }
 }

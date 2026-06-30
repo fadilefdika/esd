@@ -41,10 +41,15 @@ class AppServiceProvider extends ServiceProvider
                 $seconds = $headers['Retry-After'] ?? 60;
 
                 if (!$request->expectsJson()) {
-                    return back()
-                        ->withInput()
-                        ->withErrors(['login' => 'Terlalu banyak percobaan login.'])
-                        ->with('lockout_seconds', $seconds); // Kirim detik ke session
+                    // Flash input dan lockout seconds agar terbaca di view
+                    $request->flash();
+                    session()->flash('lockout_seconds', $seconds);
+
+                    return response(
+                        view('auth.login')->withErrors(['login' => 'Terlalu banyak percobaan login.']), 
+                        429, 
+                        $headers
+                    );
                 }
 
                 return response()->json(['message' => 'Terlalu banyak percobaan login.', 'retry_after' => $seconds], 429, $headers);
