@@ -19,7 +19,8 @@ Route::get('/', function () {
 
 // Auth routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+Route::post('/login', [AuthController::class, 'login']);
+Route::get('/captcha', [AuthController::class, 'generateCaptcha'])->name('captcha');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::get('/preview/{code}', [EntityController::class, 'preview'])->name('public.preview'); //preview page

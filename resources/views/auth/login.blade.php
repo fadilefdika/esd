@@ -10,6 +10,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    
+    <!-- JSEncrypt for RSA Client-Side Encryption -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
     <style>
         :root {
             --primary-ems: #2563eb;
@@ -220,8 +226,8 @@
                         <i class="bi bi-exclamation-triangle-fill fs-5"></i>
                         <span id="auth-message">
                             {{ $errors->first() }}
-                            @if(session('lockout_seconds'))
-                                <br>Silakan tunggu <strong id="auth-timer">{{ session('lockout_seconds') }}</strong> detik.
+                            @if(session('lockout_seconds') || isset($lockout_seconds))
+                                <br>Silakan tunggu <strong id="auth-timer">{{ session('lockout_seconds') ?? $lockout_seconds ?? 0 }}</strong> detik.
                             @endif
                         </span>
                     </div>
@@ -267,6 +273,15 @@
                             </span>
                         </div>
                     </div>
+
+                    <div class="input-group-custom">
+                        <label for="captcha" class="form-label">Kode Captcha</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <img src="{{ route('captcha') }}" alt="Captcha" class="rounded border" style="cursor: pointer;" onclick="this.src='{{ route('captcha') }}?'+Math.random()" title="Klik untuk mengganti gambar">
+                            <input type="text" name="captcha" id="captcha" class="form-control" required placeholder="Ketik kode di samping">
+                        </div>
+                        <small class="text-muted" style="font-size: 0.65rem;">Klik gambar untuk mengganti kode</small>
+                    </div>
                
                     <button type="submit" class="btn-ems">
                         Sign In <i class="bi bi-arrow-right-short fs-5"></i>
@@ -284,11 +299,11 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // === 1. Logika Lockout Timer ===
-    @if(session('lockout_seconds'))
+    @if(session('lockout_seconds') || isset($lockout_seconds))
         let timerElement = document.getElementById('auth-timer');
         let messageElement = document.getElementById('auth-message');
         let submitBtn = document.querySelector('.btn-ems');
-        let seconds = parseInt("{{ session('lockout_seconds') }}");
+        let seconds = parseInt("{{ session('lockout_seconds') ?? $lockout_seconds ?? 0 }}");
 
         if (submitBtn) {
             submitBtn.style.opacity = '0.5';
@@ -359,9 +374,38 @@ document.addEventListener('DOMContentLoaded', function() {
             const passwordField = document.getElementById('password');
             
             if(btn) {
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Mengamankan...';
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Loading...';
                 btn.style.opacity = '0.8';
                 btn.style.pointerEvents = 'none';
+            }
+
+            // Ambil public key dari server
+            @php
+                $pubKeyPath = storage_path('keys/public_key.pem');
+                if (!file_exists($pubKeyPath)) {
+                    $pubKeyPath = storage_path('app/keys/public_key.pem');
+                }
+            @endphp
+            const publicKey = `{!! addslashes(File::exists($pubKeyPath) ? File::get($pubKeyPath) : '') !!}`;
+            
+            if (publicKey) {
+                // Enkripsi password dengan RSA
+                let encryptor = new JSEncrypt();
+                encryptor.setPublicKey(publicKey);
+                
+                let encryptedPassword = encryptor.encrypt(passwordField.value);
+                
+                if (encryptedPassword) {
+                    // Mencegah plaintext terkirim dengan menghapus atribut name
+                    passwordField.removeAttribute('name');
+
+                    // Buat input hidden baru khusus untuk mengirim ciphertext
+                    let hiddenPasswordInput = document.createElement('input');
+                    hiddenPasswordInput.type = 'hidden';
+                    hiddenPasswordInput.name = 'password';
+                    hiddenPasswordInput.value = encryptedPassword;
+                    this.appendChild(hiddenPasswordInput);
+                }
             }
 
             // Lanjutkan submit form ke server
